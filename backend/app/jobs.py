@@ -17,7 +17,7 @@ from .db import Database, dumps, loads, new_id, now
 
 QUEUED, RUNNING, SUCCEEDED, FAILED, CANCELLED = "queued", "running", "succeeded", "failed", "cancelled"
 TERMINAL = {SUCCEEDED, FAILED, CANCELLED}
-HEAVY_KINDS = {"odm", "terrain", "classify", "train_classifier", "prepare_ortho", "export", "viewer_cloud", "classify_images"}
+HEAVY_KINDS = {"odm", "terrain", "classify", "train_classifier", "prepare_ortho", "export", "viewer_cloud", "classify_images", "mesh_prep"}
 LIGHT_KINDS = {"ingest_image", "analyze_flights", "import_asset"}
 MAX_LOG_LINES_PER_JOB = 20000
 

@@ -8,6 +8,7 @@ import { RAMP_NAMES, rampCss } from '../ramps';
 import { bump, setApp, toast, useApp, useProject } from '../store';
 import { boundaryRings, elevLabel, errMsg, fmtNum, lengthLabel, toMetres, usePoll } from '../util';
 import { DISCLAIMER, downloadBlob } from './terrainPanels';
+import { MeshView } from './MeshView';
 
 type ColorBy = 'ortho' | 'classes' | 'elevation' | 'confidence' | 'evidence';
 const CLS_NAMES: Record<number, string> = { 0: 'never classified', 1: 'unclassified', 2: 'ground', 3: 'low vegetation', 4: 'medium vegetation', 5: 'high vegetation', 6: 'building', 7: 'noise / removed' };
@@ -52,6 +53,9 @@ function Scene({ p, ts, cm, reloadCloud }: { p: Project; ts: any; cm: any; reloa
   const panes = useRef<(PaneReg | null)[]>([null, null]);
   const [split, setSplit] = useState(false);
   const [sideOrtho, setSideOrtho] = useState(false);
+  const [meshMode, setMeshMode] = useState(false);
+  const meshApi = useRef<{ preset: (k: 'top' | 'oblique' | 'reset') => void } | null>(null);
+  const jobsTick = useApp((x) => x.jobsTick);
   const sideRef = useRef<HTMLCanvasElement | null>(null), linkRef = useRef<HTMLCanvasElement | null>(null), linkDrag = useRef(false);
   const [detail, setDetail] = useState(400);
   const [hfsRaw, setHfs] = useState<{ dtm: Heightfield | null; dsm: Heightfield | null }>({ dtm: null, dsm: null });
@@ -102,7 +106,7 @@ function Scene({ p, ts, cm, reloadCloud }: { p: Project; ts: any; cm: any; reloa
   const rng = isFinite(vmin) && isFinite(vmax) ? { min: vmin, max: vmax } : { min: 0, max: 1 };
 
   // the latest of everything, for the render loop
-  const st = useRef<any>({}); st.current = { show, alpha, colorBy, shade, pointMode, pointSize, clsVis, split, zexag, ramp, frame, hfs, radius, mpts, measure, rng, mh, mv, bounds, hover, showEdited, editing, editTool, selMode, target };
+  const st = useRef<any>({}); st.current = { show, alpha, colorBy, shade, pointMode, pointSize, clsVis, split, zexag, ramp, frame, hfs, radius, mpts, measure, rng, mh, mv, bounds, hover, showEdited, editing, editTool, selMode, target, meshMode };
   const schedule = () => { if (!raf.current) raf.current = requestAnimationFrame(renderAll); };
 
   const optsFor = (idx: number): RenderOpts => {
@@ -111,12 +115,14 @@ function Scene({ p, ts, cm, reloadCloud }: { p: Project; ts: any; cm: any; reloa
     return { cam: cam.current, zexag: s.zexag, radius: s.radius, zref: f?.zref ?? 0, mv: s.mv, vmin: s.rng.min, vmax: s.rng.max, ramp: s.ramp, show: sh, alpha: s.split ? { dtm: 1, dsm: 1 } : s.alpha,
       colorBy: s.colorBy === 'elevation' ? 'ramp' : 'tex', shade: s.shade, pointMode: s.pointMode, pointSize: s.pointSize, clsVis: s.clsVis, clsCol: CLS_RGB_EDIT, bg: [0.86, 0.89, 0.92] };
   };
+  useEffect(() => { schedule(); /* eslint-disable-next-line */ }, [meshMode]);
   const surfaceFor = (idx: number): 'dsm' | 'dtm' => { const s = st.current; return s.split ? (idx === 0 ? 'dsm' : 'dtm') : (s.show.dsm && s.hfs.dsm && (!s.show.dtm || s.alpha.dsm > 0.5) ? 'dsm' : s.hfs.dtm ? 'dtm' : 'dsm'); };
 
   // Linked view: marker + approximate footprint of the 3D camera on the flat orthomosaic panel (and the reverse: click/drag there to move the 3D camera).
   const drawLink = () => {
     const lc = linkRef.current, s = st.current, f: Frame | null = s.frame, bb = s.bounds;
     if (!lc || !f || !bb) return; const W = lc.width, H = lc.height, c = lc.getContext('2d')!; c.clearRect(0, 0, W, H);
+    if (s.meshMode) return;                       // the photo model has its own camera; the footprint box would describe the hidden terrain view
     const P = (E: number, N: number): [number, number] => [((E - bb[0]) / (bb[2] - bb[0])) * W, ((bb[3] - N) / (bb[3] - bb[1])) * H];
     const k = cam.current, g = panes.current[0]?.pane.canvas, asp = g && g.height ? g.width / g.height : 1.4;
     const tE = k.tx / f.mh + f.cx, tN = k.ty / f.mh + f.cy, hh = (k.dist * Math.tan(0.4)) / f.mh / Math.max(0.25, Math.sin(k.pitch)), hw = (k.dist * Math.tan(0.4) * asp) / f.mh;
@@ -434,11 +440,15 @@ function Scene({ p, ts, cm, reloadCloud }: { p: Project; ts: any; cm: any; reloa
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex shrink-0 flex-wrap items-center gap-1 border-b border-line bg-white px-2 py-1">
-        <button className="btn" onClick={() => preset('oblique')}>Oblique</button><button className="btn" onClick={() => preset('top')}>Top</button><button className="btn" onClick={() => preset('north')}>Low angle</button><button className="btn" onClick={() => preset('reset')}>Reset</button>
+        <button className={`btn ${meshMode ? 'btn-on' : ''}`} onClick={() => { setMeshMode(!meshMode); if (!meshMode && editing) toggleEdit(); }}
+          title="Orbit the photo-textured model from OpenDroneMap (observed imagery on the observed 3D surface, like a Polycam capture). Needs a Balanced or High photogrammetry run.">📷 Photo model</button>
         <span className="mx-1 h-5 w-px bg-line" />
-        <button className={`btn ${editing ? 'btn-on' : ''}`} disabled={!cm?.available || cloudComplete === false} onClick={toggleEdit}
+        <button className="btn" onClick={() => (meshMode ? meshApi.current?.preset('oblique') : preset('oblique'))}>Oblique</button><button className="btn" onClick={() => (meshMode ? meshApi.current?.preset('top') : preset('top'))}>Top</button>
+        {!meshMode && <button className="btn" onClick={() => preset('north')}>Low angle</button>}<button className="btn" onClick={() => (meshMode ? meshApi.current?.preset('reset') : preset('reset'))}>Reset</button>
+        <span className="mx-1 h-5 w-px bg-line" />
+        <button className={`btn ${editing ? 'btn-on' : ''}`} disabled={meshMode || !cm?.available || cloudComplete === false} onClick={toggleEdit}
           title={cm?.available ? 'Select points with a lasso or box and change their class (edits the display sample only)' : 'Build the point-cloud display sample first'}>✎ Edit points</button>
-        <button className={`btn ${measure ? 'btn-on' : ''}`} onClick={() => { setMeasure(!measure); if (!measure && editing) toggleEdit(); }} title="Click points on the surface to measure 3D distance and slope">⟷ Measure</button>
+        <button className={`btn ${measure ? 'btn-on' : ''}`} disabled={meshMode} onClick={() => { setMeasure(!measure); if (!measure && editing) toggleEdit(); }} title="Click points on the surface to measure 3D distance and slope">⟷ Measure</button>
         {mpts.length > 0 && <button className="btn" onClick={() => setMpts([])}>Clear {mpts.length} pt</button>}
         <Check label="Split-screen: observed | estimated" checked={split} onChange={(v) => { setSplit(v); }} title="Left = DSM (what the camera saw). Right = DTM (estimated bare earth). Cameras are linked." />
         <Check label="Orthomosaic beside 3D" checked={sideOrtho} onChange={(v) => { rebuildCount.current = 0; setSideOrtho(v); }} title="Shows the stitched orthomosaic (flat, top-down imagery) next to the 3D view for comparison. Imagery only; it is not elevation evidence." />
@@ -451,11 +461,14 @@ function Scene({ p, ts, cm, reloadCloud }: { p: Project; ts: any; cm: any; reloa
           <div className="relative flex min-w-0 flex-1 items-center justify-center overflow-hidden border-r-2 border-white bg-slate-400">
             {orthoLayer ? <div className="relative h-full w-full"><canvas ref={sideRef} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
               <canvas ref={linkRef} className="absolute inset-0" style={{ width: '100%', height: '100%', objectFit: 'contain', cursor: 'crosshair', touchAction: 'none' }}
-                onPointerDown={(e) => { linkDrag.current = true; (e.target as HTMLElement).setPointerCapture(e.pointerId); linkMove(e); }} onPointerMove={(e) => { if (linkDrag.current) linkMove(e); }} onPointerUp={() => { linkDrag.current = false; }} /></div> : <div className="p-3 text-[12px] text-slate-700">No orthomosaic yet. Build the 3D terrain model on the Upload tab (or upload an orthomosaic) and it will appear here.</div>}
-            <span className="pointer-events-none absolute left-2 top-2 rounded bg-black/65 px-1.5 py-0.5 text-[11px] font-bold text-white">ORTHOMOSAIC · flat imagery · blue box = approx. 3D view area; click or drag to move the 3D view</span>
+                onPointerDown={(e) => { if (meshMode) return; linkDrag.current = true; (e.target as HTMLElement).setPointerCapture(e.pointerId); linkMove(e); }} onPointerMove={(e) => { if (linkDrag.current) linkMove(e); }} onPointerUp={() => { linkDrag.current = false; }} /></div> : <div className="p-3 text-[12px] text-slate-700">No orthomosaic yet. Build the 3D terrain model on the Upload tab (or upload an orthomosaic) and it will appear here.</div>}
+            <span className="pointer-events-none absolute left-2 top-2 rounded bg-black/65 px-1.5 py-0.5 text-[11px] font-bold text-white">ORTHOMOSAIC · flat imagery{meshMode ? '' : ' · blue box = approx. 3D view area; click or drag to move the 3D view'}</span>
           </div>)}
-        <PaneView idx={0} h={handlers(0)} onReady={onReady} onErr={setGlErr} cursor={editing ? "crosshair" : undefined} />
-        {split && <PaneView idx={1} h={handlers(1)} onReady={onReady} onErr={setGlErr} cursor={editing ? "crosshair" : undefined} />}
+        <div className="min-w-0 flex-1" style={{ display: meshMode ? 'none' : 'flex' }}>
+          <PaneView idx={0} h={handlers(0)} onReady={onReady} onErr={setGlErr} cursor={editing ? "crosshair" : undefined} />
+          {split && <PaneView idx={1} h={handlers(1)} onReady={onReady} onErr={setGlErr} cursor={editing ? "crosshair" : undefined} />}
+        </div>
+        {meshMode && <MeshView pid={pid} jobsTick={jobsTick} setCamApi={(a) => { meshApi.current = a; }} />}
         {loadErr && <div className="absolute left-2 top-10 z-10"><Notice kind="warn">{loadErr}</Notice></div>}
         {hover && !measure && (
           <div className="pointer-events-none absolute right-2 top-9 w-[230px] rounded border border-line bg-white/95 p-2 text-[12px] shadow">
@@ -464,7 +477,7 @@ function Scene({ p, ts, cm, reloadCloud }: { p: Project; ts: any; cm: any; reloa
             <Kv k={<span className="flex items-center gap-1">Ground <Chip kind="estimated">ESTIMATED</Chip></span>} v={elevLabel(p, hover.dtm)} mono />
             {isFinite(hover.dsm) && isFinite(hover.dtm) && <Kv k="Object height" v={elevLabel(p, hover.dsm - hover.dtm)} mono />}
           </div>)}
-        <div className="pointer-events-none absolute bottom-8 right-2 w-[210px] rounded border border-line bg-white/92 p-2 text-[11px] shadow">
+        <div style={{ display: meshMode ? "none" : undefined }} className="pointer-events-none absolute bottom-8 right-2 w-[210px] rounded border border-line bg-white/92 p-2 text-[11px] shadow">
           {colorBy === 'elevation' || !hasDtm ? <><div className="mb-0.5 font-semibold">Elevation ({p.vertical_units})</div><div className="h-2.5 rounded-sm border border-slate-400" style={{ background: rampCss(ramp) }} />
             <div className="flex justify-between font-mono"><span>{fmtNum(rng.min, 1)}</span><span>{fmtNum((rng.min + rng.max) / 2, 1)}</span><span>{fmtNum(rng.max, 1)}</span></div></> :
             <div>Colour: <b>{colorBy === 'ortho' ? 'imagery' : colorBy === 'classes' ? 'visual land-cover classes' : colorBy === 'confidence' ? 'terrain confidence' : 'elevation evidence'}</b></div>}

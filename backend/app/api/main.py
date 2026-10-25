@@ -79,6 +79,8 @@ def create_app(ctx: Optional[AppContext] = None, static_dir: Optional[Path] = No
     try:
         from . import imgclass
         api_routes += imgclass.routes
+        from . import mesh
+        api_routes += mesh.routes
     except ImportError:
         pass
     try:

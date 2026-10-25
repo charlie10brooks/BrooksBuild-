@@ -193,3 +193,9 @@ On **Upload**, the *Build 3D terrain model* card runs OpenDroneMap on the ingest
 Limits (stated in the UI too): the preview is built from the thinned display sample, gaps are interpolated (estimated), and edits do not change the real DSM/DTM or the full cloud. Photo classes do not feed the 3D model. A real OpenDroneMap run is still unverified here (tests use a stub); it needs your machine.
 
 In **Terrain 3D**, tick **Orthomosaic beside 3D** to see the flat stitched imagery next to the model. The blue box on the imagery is the approximate area the 3D camera is showing (the box is an approximation when the camera is tilted), and clicking or dragging on the imagery moves the 3D view there. The imagery is not elevation evidence.
+
+## Photo-textured 3D model (Polycam-style orbit view)
+
+With the **Balanced** or **High** photogrammetry setting, OpenDroneMap also produces a textured 3D mesh (the photos projected onto real 3D geometry). The platform converts it for the browser (`mesh_prep` job, `terrain/mesh/`) and **Terrain 3D → 📷 Photo model** lets you orbit it. The **Draft** setting (`--fast-orthophoto`) skips this model.
+
+It is an *observed* model (trees and roofs included), not bare earth, and the point-removal and measure tools do not apply to it. The platform checks the mesh against the project's DSM extent and tells you if they do not line up. **Unverified:** I could only test this with a stub ODM and a synthetic mesh, so ODM's real OBJ/MTL layout and its coordinate-offset convention are untested until a real run.

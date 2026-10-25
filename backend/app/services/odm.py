@@ -303,6 +303,11 @@ def run_odm(app: AppContext, ctx: JobContext) -> dict:
         P.register(app, pid, "odm_dtm", rel(dtm), "raster", {"source": "ODM", "note": "ODM's own SMRF ground estimate; reference only. "
                                                               "The platform's DTM comes from the terrain pipeline."}, ctx.id)
     app.queue.enqueue("prepare_ortho", pid, {"project_id": pid, "rel_path": rel(ortho)})
+    if _find(work, "odm_texturing/odm_textured_model_geo.obj", "odm_texturing/odm_textured_model.obj"):
+        app.queue.enqueue("mesh_prep", pid, {"project_id": pid}, dedupe_key=f"mesh_prep:{pid}")
+        ctx.log("photo-textured 3D model found; preparing it for the viewer")
+    else:
+        ctx.log("no textured 3D model in the ODM output (the 'draft' preset skips it); the photo-model viewer will be unavailable", "warning")
     chain = ctx.params.get("terrain_chain")
     if chain:                                    # "Build 3D terrain model": continue straight into terrain reconstruction
         app.queue.enqueue("terrain", pid, {"project_id": pid, "use_classification": True, "params": dict(chain)})

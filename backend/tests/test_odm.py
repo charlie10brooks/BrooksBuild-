@@ -59,6 +59,21 @@ os.makedirs(os.path.join(work, "odm_georeferencing"), exist_ok=True)
 r = np.random.default_rng(0)
 las.write_las(__import__("pathlib").Path(work, "odm_georeferencing/odm_georeferenced_model.las"),
               571000 + r.random(500) * 40, 4402000 + r.random(500) * 30, 250 + r.random(500), epsg=epsg)
+if mode != "nomesh":
+    td = os.path.join(work, "odm_texturing"); os.makedirs(td, exist_ok=True)
+    from PIL import Image
+    Image.fromarray(np.random.default_rng(1).integers(0, 255, (16, 16, 3), dtype=np.uint8)).save(os.path.join(td, "tex0.png"))
+    open(os.path.join(td, "odm_textured_model_geo.mtl"), "w").write("newmtl m0\\nKd 1 1 1\\nmap_Kd tex0.png\\n")
+    ox, oy = (571000.0, 4402000.0) if mode == "offsetmesh" else (0.0, 0.0)
+    if mode == "offsetmesh":
+        os.makedirs(os.path.join(work, "odm_georeferencing"), exist_ok=True)
+        open(os.path.join(work, "odm_georeferencing/coords.txt"), "w").write("WGS84 UTM 16N\\n571000 4402000\\n")
+    vv = [(571000.0 + 5 - ox, 4402000.0 + 5 - oy, 250.0), (571000.0 + 25 - ox, 4402000.0 + 5 - oy, 250.0),
+          (571000.0 + 25 - ox, 4402000.0 + 20 - oy, 255.0), (571000.0 + 5 - ox, 4402000.0 + 20 - oy, 255.0)]
+    with open(os.path.join(td, "odm_textured_model_geo.obj"), "w") as fo:
+        fo.write("mtllib odm_textured_model_geo.mtl\\n")
+        for a in vv: fo.write("v %.3f %.3f %.3f\\n" % a)
+        fo.write("vt 0 0\\nvt 1 0\\nvt 1 1\\nvt 0 1\\nusemtl m0\\nf 1/1 2/2 3/3\\nf 1/1 3/3 4/4\\n")
 os.makedirs(os.path.join(work, "odm_report"), exist_ok=True)
 json.dump({{"reconstruction_statistics": {{"reconstructed_shots_count": 8, "initial_shots_count": 9,
           "reprojection_error_pixels": 0.7}}}}, open(os.path.join(work, "odm_report/stats.json"), "w"))
@@ -138,6 +153,42 @@ class OdmStubTests(unittest.TestCase):
         self.assertEqual(r.status_code, 202, r.text)
         self.assertEqual(r.json()["ground_engine"], "builtin_pmf")
         self.assertIn("built-in ground filter", r.json()["note"])
+
+    def test_textured_model_prepared_and_served(self):
+        import json
+        j = self.run_job()
+        self.assertEqual(j["status"], "succeeded", j)
+        m = self.c.get(f"/api/projects/{self.pid}/mesh").json()
+        self.assertTrue(m["available"], m)
+        self.assertTrue(m["aligned"], m)
+        self.assertEqual((m["vertices"], m["triangles"], m["textures"]), (4, 2, 1))
+        self.assertEqual(m["groups"][0]["texture"], "tex_0.jpg")
+        b = self.c.get(f"/api/projects/{self.pid}/mesh/data")
+        self.assertEqual(len(b.content), 4 * 12 + 4 * 8 + 6 * 4)          # positions + uvs + indices
+        t = self.c.get(f"/api/projects/{self.pid}/mesh/texture/tex_0.jpg")
+        self.assertEqual((t.status_code, t.headers["content-type"]), (200, "image/jpeg"))
+        self.assertEqual(self.c.get(f"/api/projects/{self.pid}/mesh/texture/..%2fx.jpg").status_code, 404)
+        self.assertEqual(self.c.get(f"/api/projects/{self.pid}/mesh/texture/tex_9.jpg").status_code, 404)
+
+    def test_textured_model_offset_coordinates_use_coords_txt(self):
+        self.set_mode("offsetmesh")
+        j = self.run_job()
+        self.assertEqual(j["status"], "succeeded", j)
+        m = self.c.get(f"/api/projects/{self.pid}/mesh").json()
+        self.assertTrue(m["aligned"], m)
+        self.assertIn("coords.txt", m["alignment_note"])
+        self.assertAlmostEqual(m["origin"][0], 571015.0, delta=0.01)
+
+    def test_no_textured_model_is_reported_not_faked(self):
+        self.set_mode("nomesh")
+        j = self.run_job()
+        self.assertEqual(j["status"], "succeeded", j)                      # the rest of the run is still valid
+        m = self.c.get(f"/api/projects/{self.pid}/mesh").json()
+        self.assertFalse(m["available"])
+        self.assertIn("draft", m["reason"])
+        r = self.c.post(f"/api/projects/{self.pid}/mesh/build")
+        self.assertEqual((r.status_code, r.json()["error"]["code"]), (409, "no_textured_model"))
+        self.assertEqual(self.c.get(f"/api/projects/{self.pid}/mesh/data").status_code, 404)
 
     def test_crash_is_failed_not_success(self):
         self.set_mode("crash")

@@ -136,6 +136,8 @@ export const api = {
   exports: (id: string) => get<any[]>(`/projects/${id}/exports`),
   exportGet: (id: string, eid: string) => get(`/projects/${id}/exports/${eid}`),
   exportDelete: (id: string, eid: string) => del(`/projects/${id}/exports/${eid}`),
+  meshState: (id: string) => get<any>(`/projects/${id}/mesh`),
+  meshBuild: (id: string) => post<{ job_id: string }>(`/projects/${id}/mesh/build`, {}),
   odmState: (id: string) => get(`/projects/${id}/photogrammetry`),
   odmStart: (id: string, b: any) => post<{ job_id: string }>(`/projects/${id}/photogrammetry`, b),
 };

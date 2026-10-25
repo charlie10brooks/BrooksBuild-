@@ -58,6 +58,8 @@ export function Build3D({ p }: { p: Project }) {
             <Field label="Quality"><select className="input w-full" value={preset} onChange={(e) => setPreset(e.target.value as any)}>
               <option value="draft">Draft (fast, try this first)</option><option value="balanced">Balanced</option><option value="high">High (slow, memory-hungry)</option></select></Field>
           </div>
+          {preset === 'draft' ? <Notice kind="info">Draft is quick but skips the <b>photo-textured 3D model</b> (the orbitable, Polycam-style model). Choose Balanced or High to get it.</Notice>
+            : <div className="mb-1 text-[11px] text-slate-500">Balanced and High also build the photo-textured 3D model, opened with <b>📷 Photo model</b> in Terrain 3D.</div>}
           {(s.blocking ?? []).some((m: string) => m.startsWith('No image has GPS')) && <label className="mb-1 flex cursor-pointer items-center gap-1.5 text-[12px]"><input type="checkbox" checked={ungeo} onChange={(e) => setUngeo(e.target.checked)} />Allow processing without GPS (result will not be georeferenced)</label>}
           {blocked.map((m, i) => <Notice key={i} kind="warn">{m}</Notice>)}
           <button className="btn btn-primary w-full" disabled={busy || blocked.length > 0} onClick={go}>{busy ? 'Starting…' : 'Build 3D terrain model'}</button>

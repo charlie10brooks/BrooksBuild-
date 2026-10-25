@@ -115,7 +115,7 @@ in vec3 aPos; uniform mat4 uVP; uniform float uZ, uLift; void main(){ gl_Positio
 const LINE_FS = `#version 300 es
 precision mediump float; uniform vec4 uColor; out vec4 o; void main(){ o = uColor; }`;
 
-function compile(gl: WebGL2RenderingContext, vs: string, fs: string): WebGLProgram {
+export function compile(gl: WebGL2RenderingContext, vs: string, fs: string): WebGLProgram {
   const mk = (t: number, s: string) => { const sh = gl.createShader(t)!; gl.shaderSource(sh, s); gl.compileShader(sh); if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error('shader: ' + gl.getShaderInfoLog(sh)); return sh; };
   const p = gl.createProgram()!; gl.attachShader(p, mk(gl.VERTEX_SHADER, vs)); gl.attachShader(p, mk(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p);
   if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error('link: ' + gl.getProgramInfoLog(p)); return p;
