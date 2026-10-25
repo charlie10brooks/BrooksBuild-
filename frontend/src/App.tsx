@@ -11,12 +11,12 @@ import { View3D } from './views/View3D';
 import { Exports } from './views/Exports';
 
 const TABS: { id: View; label: string; key: string }[] = [
-  { id: 'dashboard', label: 'Image', key: '1' }, { id: 'upload', label: 'Upload', key: '2' }, { id: 'classify', label: 'Classify', key: '3' },
-  { id: 'terrain', label: 'Terrain 2D', key: '4' }, { id: 'view3d', label: 'Terrain 3D', key: '5' }, { id: 'planning', label: 'Planning', key: '6' }, { id: 'exports', label: 'Export', key: '7' },
+  { id: 'dashboard', label: 'Image', key: '1' }, { id: 'upload', label: 'Add photos', key: '2' }, { id: 'classify', label: 'Label', key: '3' },
+  { id: 'terrain', label: 'Terrain map', key: '4' }, { id: 'view3d', label: 'Terrain 3D', key: '5' }, { id: 'planning', label: 'Plan', key: '6' }, { id: 'exports', label: 'Export', key: '7' },
 ];
 
 const SHORTCUTS: [string, string][] = [
-  ['Alt + 1 … 7', 'Switch view (Image, Upload, Classify, Terrain 2D, 3D, Planning, Export)'], ['Ctrl/Cmd + Z', 'Undo last classification edit'], ['Ctrl/Cmd + Shift + Z or Ctrl + Y', 'Redo'],
+  ['Alt + 1 … 7', 'Switch view (Image, Add photos, Label, Terrain map, Terrain 3D, Plan, Export)'], ['Ctrl/Cmd + Z', 'Undo last classification edit'], ['Ctrl/Cmd + Shift + Z or Ctrl + Y', 'Redo'],
   ['S', 'Sample tool (inspect pixel)'], ['B', 'Brush'], ['P', 'Polygon'], ['R', 'Rectangle'], ['L', 'Lasso'], ['F', 'Flood fill'], ['M', 'Select similar colour'], ['E', 'Erase to Unknown'],
   ['[ and ]', 'Smaller / larger brush'], ['0 … 9', 'Choose class by id'], ['Enter / Esc', 'Apply / cancel the current polygon or selection preview'], ['Backspace', 'Remove the last polygon vertex'],
   ['Space + drag, or middle-drag', 'Pan'], ['Wheel', 'Zoom at cursor'], ['H', 'Toggle class overlay'], ['\\', 'Hold to peek at imagery without overlay'], ['?', 'This help'],
@@ -82,9 +82,14 @@ export function App() {
   }, []);
 
   const body = !pid ? (
-    <div className="m-auto max-w-[520px] p-6 text-center text-slate-600">
-      <div className="mb-2 text-lg font-semibold text-slate-800">Welcome to TerraScope</div>
-      Create a project in the left panel, then upload drone images or import an orthomosaic. To explore the tools right away, add the synthetic sample project.
+    <div className="m-auto max-w-[560px] p-6 text-slate-600">
+      <div className="mb-1 text-[22px] font-semibold text-slate-800">Welcome to Brooks<span className="text-sky-600">Build</span></div>
+      <div className="mb-3 text-[14px]">Turn drone photos into a 3D model of your site, label what is on it, and plan around the terrain.</div>
+      <ol className="mb-4 list-decimal space-y-1 pl-5 text-[14px]">
+        <li>Press <b>+ New</b> in the left panel to start a project.</li><li>Open <b>Add photos</b> and upload your drone photos.</li><li>On <b>Image</b>, press <b>Process</b>. BrooksBuild builds and labels the 3D model.</li>
+      </ol>
+      <div className="text-[13px]">Just want a look around first? <button className="btn btn-primary ml-1" onClick={async () => { try { const q = await api.sample(); selectProject(q.id); setApp({ view: 'dashboard' }); } catch { /* the sidebar shows the error */ } }}>Open the sample project</button></div>
+      <div className="mt-1 text-[11px] text-slate-500">The sample is made-up data for trying the tools. It is not a real site.</div>
     </div>
   ) : !project ? <div className="m-auto text-slate-500">Loading project…</div> :
     view === 'dashboard' ? <Dashboard /> : view === 'upload' ? <Upload /> : view === 'classify' ? <Classify /> :
@@ -94,7 +99,7 @@ export function App() {
     <div className="flex h-full flex-col">
       <header className="flex h-10 shrink-0 items-center gap-2 border-b border-line bg-slate-900 px-2 text-slate-100">
         <button className="rounded px-1.5 py-1 hover:bg-slate-700" title="Toggle left sidebar" onClick={() => setApp((s) => ({ leftOpen: !s.leftOpen }))}>☰</button>
-        <div className="mr-2 font-semibold tracking-wide">Terra<span className="text-sky-300">Scope</span></div>
+        <div className="mr-2 font-semibold tracking-wide">Brooks<span className="text-sky-300">Build</span></div>
         {project && <div className="mr-2 flex items-center gap-2 truncate text-[12px] text-slate-300"><span className="max-w-[220px] truncate font-medium text-white">{project.name}</span>
           {project.is_sample && <span className="rounded border border-red-400 px-1 text-[10px] text-red-300">SYNTHETIC</span>}</div>}
         <nav className="flex gap-0.5">

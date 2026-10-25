@@ -1,4 +1,4 @@
-# TerraScope
+# BrooksBuild
 
 Drone-based terrain reconstruction and vegetation removal for **residential construction planning on wooded lots**.
 
@@ -6,7 +6,7 @@ Upload drone photos (any number), get an orthomosaic, point cloud and surface mo
 estimate the bare earth underneath. Measure, profile and draw footprints on it, and export the results to GIS and CAD.
 
 > **Everything this tool produces about the ground under trees is an estimate, and it says so.**
-> A camera sees treetops, not the soil beneath them. TerraScope keeps five things strictly apart and labels them everywhere:
+> A camera sees treetops, not the soil beneath them. BrooksBuild keeps five things strictly apart and labels them everywhere:
 > **land cover** (a visual interpretation of the imagery), the **observed surface** (DSM), **classified ground points**,
 > the **estimated bare earth** (DTM) and **insufficient-evidence** areas (the confidence layer).
 > *Painting a pixel as "soil" never creates elevation evidence.* All elevations, slopes, volumes and drainage results are a
@@ -149,7 +149,7 @@ Environment variables (prefix `TERRASCOPE_`): `DATA_DIR`, `MAX_FILE_BYTES` (8 Gi
 ## Deployment notes
 
 * **Single host.** Run the API and one or more workers against the same `DATA_DIR` (they coordinate through SQLite WAL and file locks). Put TLS and
-  authentication in front (a reverse proxy): **TerraScope has no user accounts or authentication.** Anyone who can reach the API can read and
+  authentication in front (a reverse proxy): **BrooksBuild has no user accounts or authentication.** Anyone who can reach the API can read and
   delete every project. Do not expose it to the internet as is.
 * Project isolation is by directory and by checked project id on every route; there is no multi-tenant access control beyond that.
 * Heavy jobs (photogrammetry, terrain, classification) are limited to `HEAVY_CONCURRENCY` at once. ODM is memory-hungry: size the host from ODM's own guidance for your image count and quality preset.
@@ -161,7 +161,7 @@ Environment variables (prefix `TERRASCOPE_`): `DATA_DIR`, `MAX_FILE_BYTES` (8 Gi
 
 | Symptom | Cause / fix |
 | --- | --- |
-| "Cannot reach the TerraScope server" | API not running, or you opened the UI from another origin. The UI calls `/api` on the page's own origin (override with `window.TERRASCOPE_API`). |
+| "Cannot reach the BrooksBuild server" | API not running, or you opened the UI from another origin. The UI calls `/api` on the page's own origin (override with `window.TERRASCOPE_API`). |
 | Jobs stay *queued* | No worker is running (`python3 -m app.workers.runner`), or the queue is paused (left sidebar → Queue → Resume). |
 | ODM job fails immediately: "Docker not available / daemon not running" | Install and start Docker; `docker pull opendronemap/odm`. `GET /api/system` shows what was detected. |
 | ODM job fails: "unsupported option" | Your ODM version renamed an option. The message names it; adjust the preset or `TERRASCOPE_ODM_ARGS`. |
@@ -205,3 +205,9 @@ It is an *observed* model (trees and roofs included), not bare earth, and the po
 The first tab (formerly "Dashboard") is now called **Image** and opens on the **3D photo model**, with the flights map, products and jobs underneath. In **Classify**, the **3D photo model** switch lets you lasso or box-select parts of the stitched model and give them a class, with colours drawn on the model. **Copy orthomosaic classes onto the model** starts you from the 2D classification.
 
 Limits, stated in the UI too: the labels live on the 3D model only (they do not change the orthomosaic classification, point-cloud classes or any elevation result); copied labels follow the map position under each point, so tree sides and walls take the ground class beneath them; selection ignores surfaces hidden behind nearer geometry using a coarse screen-space test, so very thin or edge-on surfaces can be missed; labels are discarded if the model is rebuilt. Tested with a stubbed ODM and a synthetic model, not real ODM output.
+
+## One-click pipeline (current main path)
+
+On the **Image** tab, **Process photos into a 3D model** runs everything in order: OpenDroneMap builds the textured 3D model, the model is prepared for the browser, the ground is worked out for the Terrain pages, and the model is labelled automatically from its own photos (colour rules on the model's texture, with vegetation split into grass / brush / trees by height above the estimated ground when a ground estimate lines up). Check and fix the labels in **Label**. The flat orthomosaic is still produced and used in the background (terrain), but it is no longer the main way to label.
+
+The automatic labels are guesses from colour and height, not a trained model. Unverified on real ODM output.

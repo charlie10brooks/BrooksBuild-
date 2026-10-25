@@ -251,6 +251,9 @@ def handle_mesh_prep(app: AppContext, ctx: JobContext) -> dict:
     meta = build(app, pid, ctx.log, ctx.progress)
     ctx.progress(1.0, "done")
     ctx.log(f"textured model: {meta['triangles']:,} triangles, {meta['textures']} texture(s); {meta['alignment_note']}")
+    if ctx.params.get("auto_label"):
+        app.queue.enqueue("classify_mesh", pid, {"project_id": pid}, dedupe_key=f"classify_mesh:{pid}")
+        ctx.log("automatic labelling of the model queued")
     return {k: meta[k] for k in ("vertices", "triangles", "textures", "aligned", "alignment_note")}
 
 

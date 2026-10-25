@@ -1,4 +1,4 @@
-// Typed client for the TerraScope HTTP API. Every call either returns data or throws ApiError (never a silent fallback).
+// Typed client for the BrooksBuild HTTP API. Every call either returns data or throws ApiError (never a silent fallback).
 export class ApiError extends Error {
   status: number; code: string; details: any;
   constructor(status: number, code: string, message: string, details?: any) { super(message); this.status = status; this.code = code; this.details = details; }
@@ -13,7 +13,7 @@ export async function req<T = any>(method: string, path: string, body?: any, ini
       body: body === undefined ? undefined : body instanceof Blob ? body : JSON.stringify(body), ...init });
   } catch (e: any) {
     if (e?.name === 'AbortError') throw e;
-    throw new ApiError(0, 'network', 'Cannot reach the TerraScope server. Is the API running?');
+    throw new ApiError(0, 'network', 'Cannot reach the BrooksBuild server. Is the API running?');
   }
   if (r.status === 204) return undefined as T;
   const ct = r.headers.get('content-type') || '';
@@ -140,6 +140,7 @@ export const api = {
   meshBuild: (id: string) => post<{ job_id: string }>(`/projects/${id}/mesh/build`, {}),
   meshLabels: (id: string) => get<any>(`/projects/${id}/mesh/labels`),
   meshLabelsSeed: (id: string) => post<any>(`/projects/${id}/mesh/labels/seed`, {}),
+  meshLabelsAuto: (id: string) => post<{ job_id: string }>(`/projects/${id}/mesh/labels/auto`, {}),
   meshLabelsUndo: (id: string) => post<any>(`/projects/${id}/mesh/labels/undo`, {}),
   meshLabelsRedo: (id: string) => post<any>(`/projects/${id}/mesh/labels/redo`, {}),
   meshLabelsClear: (id: string) => post<any>(`/projects/${id}/mesh/labels/clear`, {}),

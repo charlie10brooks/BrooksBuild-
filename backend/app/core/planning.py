@@ -53,8 +53,9 @@ def bilinear_sample(arr: np.ndarray, grid: GridSpec, x: np.ndarray, y: np.ndarra
     ok = (r0 >= 0) & (r0 + 1 < grid.height) & (c0 >= 0) & (c0 + 1 < grid.width)
     if ok.any():
         a = arr.astype(np.float64)
-        v = ((1 - fr) * (1 - fc) * a[r0[ok], c0[ok]] + (1 - fr) * fc * a[r0[ok], c0[ok] + 1]
-             + fr * (1 - fc) * a[r0[ok] + 1, c0[ok]] + fr * fc * a[r0[ok] + 1, c0[ok] + 1])
+        fr_, fc_, r_, c_ = fr[ok], fc[ok], r0[ok], c0[ok]
+        v = ((1 - fr_) * (1 - fc_) * a[r_, c_] + (1 - fr_) * fc_ * a[r_, c_ + 1]
+             + fr_ * (1 - fc_) * a[r_ + 1, c_] + fr_ * fc_ * a[r_ + 1, c_ + 1])
         out[ok] = v
     return out
 

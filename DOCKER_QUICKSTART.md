@@ -1,4 +1,4 @@
-# Run TerraScope with Docker: step by step
+# Run BrooksBuild with Docker: step by step
 
 **Status:** the image build, tests and a start-up check pass on GitHub Actions. A full `docker compose up` with real photos and OpenDroneMap has not been verified yet.
 but expect to fix small things on the first build. If something fails, copy the error text and send it back.

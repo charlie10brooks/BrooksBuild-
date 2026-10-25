@@ -16,9 +16,13 @@ from typing import Dict, Optional
 import numpy as np
 
 from ..context import AppContext
+from ..jobs import JobContext, JobFailure
+from ..core.planning import bilinear_sample
 from ..core.tiling import Window
 from ..db import loads
 from . import classify as K
+from . import geotiff as gt
+from . import imgclass as IC
 from . import meshprep as M
 from . import ortho as O
 from . import products as P
@@ -230,3 +234,109 @@ def labels_bytes(app: AppContext, pid: str) -> bytes:
     if not m:
         return np.zeros(mm["vertices"], np.uint8).tobytes()
     return _labels(app, pid).astype(np.uint8).tobytes()
+
+
+# --------------------------------------------------------------------------------------- automatic labelling from the model's own photos
+def _ground_height(app: AppContext, pid: str, mm: dict, xy: np.ndarray, z: np.ndarray):
+    """Height of each vertex above the ESTIMATED ground (platform DTM, else ODM's own DTM). Returns (heights|None, source text)."""
+    for name, text in (("dtm", "the platform's estimated bare earth"), ("odm_dtm", "ODM's own ground estimate")):
+        pr = P.get(app, pid, name)
+        if not pr or not pr["exists"] or not mm.get("aligned"):
+            continue
+        try:
+            gi = gt.read_georef(pr["path"])
+            if not gi.grid:
+                continue
+            arr = gt.read_full(pr["path"]).astype(np.float64)
+            if arr.ndim == 3:
+                arr = arr[..., 0]
+            if gi.nodata is not None:
+                arr[arr == gi.nodata] = np.nan
+            g = bilinear_sample(arr, gi.grid, xy[:, 0], xy[:, 1])
+        except Exception:
+            continue
+        h = z - g
+        ok = np.isfinite(h)
+        if ok.mean() < 0.5 or not (-20 < float(np.nanmedian(h)) < 100):          # implausible: wrong datum or little overlap
+            continue
+        return h, text
+    return None, None
+
+
+def auto_label(app: AppContext, pid: str, progress=lambda *_: None, log=lambda *_: None) -> dict:
+    """Label every vertex from what the model's own texture looks like there (colour rules), then split vegetation into grass / brush / trees by
+    height above the estimated ground when that is available. A heuristic: it will be wrong in places, which is why hand editing exists."""
+    from PIL import Image
+    mm = _mesh_meta(app, pid)
+    d = _dir(app, pid)
+    n, t = mm["vertices"], mm["triangles"]
+    raw = np.memmap(d / "mesh.bin", dtype=np.uint8, mode="r")
+    pos = np.frombuffer(raw[: n * 12], np.float32).reshape(n, 3)
+    uv = np.frombuffer(raw[n * 12: n * 20], np.float32).reshape(n, 2)
+    idx = np.frombuffer(raw[n * 20: n * 20 + t * 12], np.uint32)
+    progress(0.05, "reading the model")
+    vgroup = np.full(n, -1, np.int32)
+    for gi, g in enumerate(mm["groups"]):
+        vgroup[idx[g["start"] * 3:(g["start"] + g["count"]) * 3]] = gi
+    model = K.load_model(app, pid, "heuristic")
+    labels = np.zeros(n, np.uint8)
+    done = {}
+    for gi, g in enumerate(mm["groups"]):
+        sel = np.nonzero(vgroup == gi)[0]
+        if not g["texture"] or sel.size == 0:
+            continue
+        if g["texture"] not in done:
+            progress(0.1 + 0.5 * len(done) / max(1, mm["textures"]), f"classifying {g['texture']}")
+            with Image.open(d / g["texture"]) as im:
+                im = im.convert("RGB")
+                s = max(im.size)
+                if s > 2048:
+                    im = im.resize((max(1, im.width * 2048 // s), max(1, im.height * 2048 // s)), Image.LANCZOS)
+                rgb = np.asarray(im)
+            cls, _ = IC.predict_tiled(model, rgb)
+            done[g["texture"]] = cls
+        cls = done[g["texture"]]
+        h, w = cls.shape
+        col = np.clip(np.round(uv[sel, 0] * (w - 1)).astype(int), 0, w - 1)
+        row = np.clip(np.round((1.0 - uv[sel, 1]) * (h - 1)).astype(int), 0, h - 1)    # OBJ v is measured from the bottom of the image
+        labels[sel] = cls[row, col]
+    progress(0.7, "using height above the ground")
+    classes = _classes(app, pid)
+    veg = {int(c["id"]) for c in classes if c.get("vegetation")}
+    key = {c.get("key"): int(c["id"]) for c in classes}
+    height_note = "Height above ground was not used (no ground estimate lined up with the model), so grass, brush and trees come from colour only."
+    xy = vertex_world_xy(app, pid, mm)
+    hts, src = _ground_height(app, pid, mm, xy, pos[:, 2].astype(np.float64) + mm["origin"][2])
+    if hts is not None and all(k in key for k in ("grass", "brush", "trees")):
+        isveg = np.isin(labels, list(veg)) & np.isfinite(hts)
+        labels[isveg & (hts < 0.4)] = key["grass"]
+        labels[isveg & (hts >= 0.4) & (hts < 2.5)] = key["brush"]
+        labels[isveg & (hts >= 2.5)] = key["trees"]
+        height_note = f"Vegetation was split into grass (under 0.4 m), brush (under 2.5 m) and trees using height above {src}."
+    progress(0.9, "saving the labels")
+    m = _ensure(app, pid, mm)
+    lab = _labels(app, pid)
+    ch = np.nonzero(lab != labels)[0]
+    if ch.size:
+        _record(app, pid, m, ch, lab[ch].copy(), labels[ch].copy(), "automatic labelling from the model's photos")
+        np.save(d / "labels.npy", labels)
+    m["source"] = "automatic: colour rules on the model's photos" + (" + height above ground" if hts is not None else "")
+    _save_meta(app, pid, m)
+    res = info(app, pid)
+    res["note_height"] = height_note
+    return res
+
+
+def handle_classify_mesh(app: AppContext, ctx: JobContext) -> dict:
+    pid = ctx.params["project_id"]
+    try:
+        res = auto_label(app, pid, ctx.progress, ctx.log)
+    except MeshClassError as e:
+        raise JobFailure(e.message, e.code)
+    ctx.log(res["note_height"])
+    ctx.progress(1.0, "done")
+    return {"counts": res["counts"], "note": res["note_height"]}
+
+
+from ..workers.handlers import HANDLERS  # noqa: E402
+HANDLERS["classify_mesh"] = handle_classify_mesh

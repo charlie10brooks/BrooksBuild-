@@ -217,6 +217,31 @@ class OdmStubTests(unittest.TestCase):
         self.assertEqual(self.c.post(u + "/edit?cls=2", content=np.array([77], "<u4").tobytes()).json()["error"]["code"], "bad_selection")
         self.assertEqual(self.c.post(u + "/edit?cls=2", content=b"abc").status_code, 400)
 
+    def test_auto_label_chain_labels_the_model_from_its_own_photos(self):
+        j = self.run_job(auto_label=True)
+        self.assertEqual(j["status"], "succeeded", j)
+        row = self.ctx.db.one("SELECT status, result_json FROM jobs WHERE kind='classify_mesh'")
+        self.assertIsNotNone(row, "automatic labelling should be queued after the model is prepared")
+        self.assertEqual(row["status"], "succeeded", row["result_json"])
+        st = self.c.get(f"/api/projects/{self.pid}/mesh/labels").json()
+        self.assertTrue(st["has_labels"], st)
+        self.assertEqual(sum(st["counts"].values()), 4)
+        self.assertTrue(st["source"].startswith("automatic"), st["source"])
+        self.assertIn("height above ground", st["source"])                     # ODM's own DTM lined up with the model, so height was used
+        # the label step can also be run on demand, and is refused without a prepared model
+        r = self.c.post(f"/api/projects/{self.pid}/mesh/labels/auto")
+        self.assertEqual(r.status_code, 202, r.text)
+
+    def test_auto_label_not_queued_unless_asked(self):
+        self.run_job()
+        self.assertIsNone(self.ctx.db.one("SELECT 1 FROM jobs WHERE kind='classify_mesh'"))
+
+    def test_auto_label_refused_without_a_model(self):
+        self.set_mode("nomesh")
+        self.run_job()
+        r = self.c.post(f"/api/projects/{self.pid}/mesh/labels/auto")
+        self.assertEqual((r.status_code, r.json()["error"]["code"]), (409, "no_mesh"))
+
     def test_mesh_labels_discarded_when_the_model_is_rebuilt(self):
         import numpy as np
         j = self.run_job()

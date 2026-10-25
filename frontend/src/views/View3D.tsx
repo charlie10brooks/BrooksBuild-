@@ -423,7 +423,7 @@ function Scene({ p, ts, cm, reloadCloud }: { p: Project; ts: any; cm: any; reloa
     const pr = panes.current[0]; if (!pr) return; renderAll();
     const out = document.createElement('canvas'); const n = split && panes.current[1] ? 2 : 1; const w = pr.pane.canvas.width, h = pr.pane.canvas.height; out.width = w * n; out.height = h;
     const c = out.getContext('2d')!; for (let i = 0; i < n; i++) { const q = panes.current[i]!; c.drawImage(q.pane.canvas, i * w, 0, w, h); c.drawImage(q.overlay, i * w, 0, w, h); }
-    out.toBlob((b) => b && downloadBlob(b, `terrascope_3d_${new Date().toISOString().slice(0, 10)}.png`));
+    out.toBlob((b) => b && downloadBlob(b, `brooksbuild_3d_${new Date().toISOString().slice(0, 10)}.png`));
   };
 
   // ------------------------------------------------------------ measurement math

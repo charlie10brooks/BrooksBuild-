@@ -23,7 +23,7 @@ def load_all() -> Dict[str, Callable]:
     HANDLERS.setdefault("analyze_flights", flights.handle_analyze)
     from ..services import assets
     HANDLERS.setdefault("import_asset", assets.import_asset)
-    for mod in ("ortho", "classify", "odm", "terrain_job", "exports", "samples", "imgclass", "meshprep"):
+    for mod in ("ortho", "classify", "odm", "terrain_job", "exports", "samples", "imgclass", "meshprep", "meshclass"):
         try:
             __import__(f"{__package__.rsplit('.', 1)[0]}.services.{mod}")
         except ModuleNotFoundError as e:

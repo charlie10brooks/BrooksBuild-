@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { api } from '../api';
 import { Chip, Field, Kv, Notice, Progress, Section, Table } from '../ui';
-import { bump, toast, useProject } from '../store';
+import { bump, setApp, toast, useProject } from '../store';
 import { Purpose, UItem, filesFromDrop, filesFromInput, uploads } from '../uploader';
 import { errMsg, fmtBytes, fmtDur, usePoll } from '../util';
 import { PhotoClassify, PhotoGallery } from './PhotoClassify';
-import { Build3D } from './Build3D';
 
 const PURPOSES: { id: Purpose; label: string; hint: string; accept: string }[] = [
   { id: 'image', label: 'Drone images', hint: 'JPEG or TIFF with EXIF GPS. No limit on the number of images. Duplicates (identical content) are detected and skipped.', accept: '.jpg,.jpeg,.tif,.tiff' },
@@ -119,7 +118,9 @@ export function Upload() {
         </div>
         <div className="min-w-0 space-y-3">
           <PhotoClassify p={p} justUploaded={t.files > 0 && t.queued + t.active + t.paused === 0 && summary.data?.needs_attention === 0} />
-          <Build3D p={p} />
+          {p.image_count > 0 && <div className="rounded border border-accent bg-white ring-2 ring-sky-100"><Section title="Next: build the 3D model">
+            <div className="mb-2 text-[13px] text-slate-700">When your photos are uploaded, go to the <b>Image</b> tab and press <b>Process</b>. It builds the 3D model and labels it for you.</div>
+            <button className="btn btn-primary" onClick={() => setApp({ view: 'dashboard' })}>Go to Image</button></Section></div>}
           <div className="rounded border border-line bg-white">
             <Section title="Server-side processing">
               <div className="mb-1 text-[11px] text-slate-500">After upload, each file is assembled, checksummed, de-duplicated, validated and read for EXIF/GPS by background workers.</div>

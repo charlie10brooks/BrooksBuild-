@@ -53,7 +53,7 @@ export function MeshClassify({ pid }: { pid: string }) {
 
   if (!info) return <div className="m-auto text-slate-500">Loading…</div>;
   if (!info.available) return (
-    <div className="m-auto max-w-[520px] p-4"><Notice kind="info"><b>No photo-textured 3D model yet.</b> {info.reason} It comes from OpenDroneMap&apos;s texturing step, which needs the <b>Balanced</b> or <b>High</b> setting.</Notice>
+    <div className="m-auto max-w-[520px] p-4"><Notice kind="info"><b>There is no 3D model yet.</b> Add your photos and press <b>Process</b> on the <b>Image</b> tab first. {info.reason}</Notice>
       <MeshView pid={pid} jobsTick={jt} /></div>);
   return (
     <div className="flex min-h-0 flex-1">
@@ -93,12 +93,16 @@ export function MeshClassify({ pid }: { pid: string }) {
           <Slider label="Colour strength" value={opacity} min={0.1} max={1} step={0.05} onChange={setOpacity} fmt={(v) => `${Math.round(v * 100)}%`} />
           <div className="mt-1 grid grid-cols-3 gap-1"><button className="btn" onClick={() => api3.current?.preset('oblique')}>Oblique</button><button className="btn" onClick={() => api3.current?.preset('top')}>Top</button><button className="btn" onClick={() => api3.current?.preset('reset')}>Reset</button></div>
         </Section>
-        <Section title="Start from the map">
-          <div className="mb-1 text-[12px] text-slate-600">Copy the orthomosaic classification onto the model, then fix what looks wrong. Each point takes the class of the map position it sits above, so tree sides and walls follow the ground under them.</div>
+        <Section title="Automatic labels">
+          <div className="mb-1 text-[12px] text-slate-600">Labels every part of the model from what its own photos look like, and splits vegetation into grass, brush and trees by height above the ground. They are guesses, so check them and fix what is wrong.</div>
+          <button className="btn btn-primary w-full" disabled={busy} onClick={() => run(async () => { await api.meshLabelsAuto(pid); bump('jobsTick'); }, 'Labelling started. It will appear here when finished.')}>{info.has_labels ? 'Run automatic labelling again' : 'Label the model automatically'}</button>
+          <div className="mt-1"><Kv k="Labels" v={info.has_labels ? info.source : 'none yet'} /></div>
+          <button className="btn mt-1 w-full" disabled={busy || !info.has_labels} onClick={() => { if (window.confirm('Remove all labels from the model? You can undo this.')) run(() => api.meshLabelsClear(pid)); }}>Clear all labels</button>
+        </Section>
+        <Section title="Advanced: copy from the flat map" open={false}>
+          <div className="mb-1 text-[12px] text-slate-600">If you already classified the flat orthomosaic, copy it onto the model. Each point takes the class of the map position it sits above, so tree sides and walls follow the ground under them.</div>
           <button className="btn w-full" disabled={busy || !info.can_seed} onClick={() => { if (info.has_labels && !window.confirm('Replace the current labels with the orthomosaic classification? You can undo this.')) return; run(() => api.meshLabelsSeed(pid), 'Copied the orthomosaic classification onto the model'); }}>Copy orthomosaic classes onto the model</button>
           {!info.can_seed && <div className="mt-1"><Notice kind="warn">{info.seed_reason}</Notice></div>}
-          <button className="btn mt-1 w-full" disabled={busy || !info.has_labels} onClick={() => { if (window.confirm('Remove all labels from the model? You can undo this.')) run(() => api.meshLabelsClear(pid)); }}>Clear all labels</button>
-          <div className="mt-2"><Kv k="Labels" v={info.has_labels ? info.source : 'none yet'} /></div>
         </Section>
         <div className="p-2"><Notice kind="estimate"><Chip kind="estimated">LABELS ON THE 3D MODEL</Chip> These labels live on the photo model only. They do not change the orthomosaic classification, the point-cloud classes or any elevation result, and they are not elevation evidence.</Notice></div>
       </div>

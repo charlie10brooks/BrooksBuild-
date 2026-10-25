@@ -139,6 +139,7 @@ class OdmIn(BaseModel):
     allow_ungeoreferenced: bool = False
     build_terrain: bool = Field(False, description="after photogrammetry, continue automatically into terrain reconstruction (3D model)")
     ground_engine: Optional[Literal["pdal_smrf", "pdal_pmf", "builtin_pmf"]] = None
+    auto_label: bool = Field(False, description="after the textured 3D model is prepared, label it automatically from its own photos")
 
 
 async def photogrammetry_state(request: Request):

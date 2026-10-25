@@ -111,6 +111,17 @@ async def labels_clear(request: Request):
     return ok(await run(_wrap, MC.clear, app, pid))
 
 
+async def labels_auto(request: Request):
+    app, pid = ctx_of(request), request.path_params["pid"]
+    await run(project_or_404, app, pid)
+
+    def work():
+        if not (app.storage.path(pid, f"{M.DIR}/mesh.bin")).exists():
+            raise ApiError(409, "There is no prepared photo-textured model to label yet.", "no_mesh")
+        return app.queue.enqueue("classify_mesh", pid, {"project_id": pid}, dedupe_key=f"classify_mesh:{pid}")
+    return ok({"job_id": await run(work)}, status=202)
+
+
 routes = [
     Route("/projects/{pid}/mesh", state),
     Route("/projects/{pid}/mesh/build", build, methods=["POST"]),
@@ -118,6 +129,7 @@ routes = [
     Route("/projects/{pid}/mesh/texture/{name}", texture),
     Route("/projects/{pid}/mesh/labels", labels_state),
     Route("/projects/{pid}/mesh/labels/data", labels_data),
+    Route("/projects/{pid}/mesh/labels/auto", labels_auto, methods=["POST"]),
     Route("/projects/{pid}/mesh/labels/seed", labels_seed, methods=["POST"]),
     Route("/projects/{pid}/mesh/labels/edit", labels_edit, methods=["POST"]),
     Route("/projects/{pid}/mesh/labels/undo", labels_undo, methods=["POST"]),

@@ -321,5 +321,5 @@ def build_report(ex, path: Path) -> None:
               "Obtain supplemental survey data (LiDAR, total station or GNSS ground shots) wherever confidence is low or unknown."):
         el.append(Paragraph("&bull; " + _esc(t), B))
     doc = SimpleDocTemplate(str(path), pagesize=letter, leftMargin=0.75 * inch, rightMargin=0.75 * inch, topMargin=0.7 * inch, bottomMargin=0.8 * inch,
-                            title=f"{p['name']} - terrain report", author="TerraScope")
+                            title=f"{p['name']} - terrain report", author="BrooksBuild")
     doc.build(el, onFirstPage=_footer, onLaterPages=_footer)

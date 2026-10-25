@@ -42,12 +42,12 @@ export function Classify() {
   const jt = useApp((s) => s.jobsTick);
   const ortho = usePoll(() => api.ortho(p.id), 0, [p.id, jt]);
   const info = usePoll(() => (ortho.data?.available ? api.classInfo(p.id) : Promise.resolve(null)), 0, [p.id, ortho.data?.available, ortho.data?.created_at]);
-  const [mode, setMode] = useLocal<'2d' | '3d'>('ts.classify.mode', '2d');
+  const [mode, setMode] = useLocal<'2d' | '3d'>('ts.classify.mode3d', '3d');
   const bar = (
     <div className="flex shrink-0 items-center gap-1 border-b border-line bg-white px-2 py-1">
-      <span className="mr-1 text-[12px] text-slate-600">Classify on:</span>
-      <button className={`btn ${mode === '2d' ? 'btn-on' : ''}`} onClick={() => setMode('2d')}>Orthomosaic (flat map)</button>
-      <button className={`btn ${mode === '3d' ? 'btn-on' : ''}`} onClick={() => setMode('3d')} title="Label the stitched 3D photo model directly">3D photo model</button>
+      <span className="mr-1 text-[12px] text-slate-600">Label on:</span>
+      <button className={`btn ${mode === '3d' ? 'btn-on' : ''}`} onClick={() => setMode('3d')} title="Label the 3D model built from your photos">3D model (recommended)</button>
+      <button className={`btn ${mode === '2d' ? 'btn-on' : ''}`} onClick={() => setMode('2d')} title="Advanced: paint classes on the flat stitched map instead">Flat map (advanced)</button>
     </div>);
   if (mode === '3d') return <div className="flex min-h-0 flex-1 flex-col">{bar}<MeshClassify pid={p.id} key={p.id} /></div>;
   if (ortho.loading) return <div className="flex min-h-0 flex-1 flex-col">{bar}<div className="m-auto text-slate-500">Loading…</div></div>;

@@ -547,7 +547,7 @@ class Exporter:
         for layer, x, y, t in labels:
             dx.text(layer, x + th * 0.3, y + th * 0.3, th, t)
         note = ["PRELIMINARY PLANNING ESTIMATE - NOT A SURVEY. Do not use for foundation design, permitting or staking without validation by a licensed surveyor.",
-                f"Source: TerraScope. Horizontal CRS EPSG:{self.epsg or 'UNKNOWN'}, units {self.proj['horizontal_units']}; elevations in {self.proj['vertical_units']}.",
+                f"Source: BrooksBuild. Horizontal CRS EPSG:{self.epsg or 'UNKNOWN'}, units {self.proj['horizontal_units']}; elevations in {self.proj['vertical_units']}.",
                 "Contours come from the ESTIMATED bare-earth model (smoothed). TS_CONTOUR_LOWCONF_* = low/unknown confidence (largely extrapolated); do not rely on them."]
         for i, t in enumerate(note):
             dx.text(L["TS_NOTES"], ex[0], ex[1] - th * (2 + 1.6 * i), th, t)
@@ -570,7 +570,7 @@ class Exporter:
             prods[r["name"]] = {"kind": r["kind"], "exists": r["exists"], "bytes": r["size"], "created_at": r["created_at"],
                                 "meta": {k: v for k, v in r["meta"].items() if k not in ("pyramid", "raw")}}
         summary = (self.product("terrain_summary") or {}).get("meta")
-        return {"generator": "TerraScope", "created_at": now(), "export_id": self.eid, "disclaimer": DISCLAIMER, "visual_classification_note": VISUAL_NOTE,
+        return {"generator": "BrooksBuild", "created_at": now(), "export_id": self.eid, "disclaimer": DISCLAIMER, "visual_classification_note": VISUAL_NOTE,
                 "surface_definitions": {"land_cover": "visual classification of the orthomosaic (not elevation evidence)",
                                         "observed_surface": "DSM / photogrammetry surface points: canopy and structure tops",
                                         "classified_ground_points": "point-cloud returns accepted as ground by the ground filter",
@@ -587,7 +587,7 @@ class Exporter:
 def readme_text(meta: dict) -> str:
     p = meta["project"]
     return "\n".join([
-        "TerraScope export", "=" * 17, "", meta["disclaimer"], "",
+        "BrooksBuild export", "=" * 17, "", meta["disclaimer"], "",
         f"Project: {p['name']}   (horizontal EPSG:{p['horizontal_epsg']}, {p['horizontal_units']}; vertical {p['vertical_units']})",
         "SYNTHETIC SAMPLE DATA - not a real site." if p["synthetic_sample"] else "", "",
         "Read this before using the elevation files:",

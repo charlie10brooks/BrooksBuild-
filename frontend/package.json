@@ -2,7 +2,7 @@
   "name": "terrascope-frontend",
   "private": true,
   "version": "0.1.0",
-  "description": "TerraScope web client (React 19 + TypeScript, bundled with esbuild, Tailwind CSS v4 compiled through its JS API).",
+  "description": "BrooksBuild web client (React 19 + TypeScript, bundled with esbuild, Tailwind CSS v4 compiled through its JS API).",
   "scripts": {
     "build": "node build.mjs",
     "check": "node build.mjs --check",

@@ -304,7 +304,7 @@ def run_odm(app: AppContext, ctx: JobContext) -> dict:
                                                               "The platform's DTM comes from the terrain pipeline."}, ctx.id)
     app.queue.enqueue("prepare_ortho", pid, {"project_id": pid, "rel_path": rel(ortho)})
     if _find(work, "odm_texturing/odm_textured_model_geo.obj", "odm_texturing/odm_textured_model.obj"):
-        app.queue.enqueue("mesh_prep", pid, {"project_id": pid}, dedupe_key=f"mesh_prep:{pid}")
+        app.queue.enqueue("mesh_prep", pid, {"project_id": pid, "auto_label": bool(ctx.params.get("auto_label"))}, dedupe_key=f"mesh_prep:{pid}")
         ctx.log("photo-textured 3D model found; preparing it for the viewer")
     else:
         ctx.log("no textured 3D model in the ODM output (the 'draft' preset skips it); the photo-model viewer will be unavailable", "warning")
