@@ -1,0 +1,42 @@
+name: Build and test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the image
+        run: docker build -t terrascope:ci .
+
+      - name: Run the backend tests inside the image
+        run: docker run --rm terrascope:ci python -m unittest discover -s tests -t .
+
+      - name: Start the app and check that it answers
+        run: |
+          mkdir -p "$PWD/ci-data"
+          docker run -d --name ts -p 8000:8000 \
+            -e TERRASCOPE_DATA_DIR=/data -e TERRASCOPE_DEV_MODE=1 -e TERRASCOPE_MIN_FREE_BYTES=0 \
+            -v "$PWD/ci-data:/data" terrascope:ci
+          for i in $(seq 1 40); do curl -sf http://localhost:8000/api/health && break; sleep 2; done
+          curl -sf http://localhost:8000/api/health
+          curl -sf -o /dev/null -w "web UI: %{http_code}\n" http://localhost:8000/
+          docker logs ts
+
+      - name: Publish the image (main branch only)
+        if: github.ref == 'refs/heads/main'
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          IMG=ghcr.io/$(echo "${{ github.repository_owner }}" | tr 'A-Z' 'a-z')/terrascope
+          docker tag terrascope:ci "$IMG:latest"
+          docker push "$IMG:latest"
