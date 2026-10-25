@@ -52,7 +52,7 @@ function Scene({ p, ts, cm, reloadCloud }: { p: Project; ts: any; cm: any; reloa
   const panes = useRef<(PaneReg | null)[]>([null, null]);
   const [split, setSplit] = useState(false);
   const [sideOrtho, setSideOrtho] = useState(false);
-  const sideRef = useRef<HTMLCanvasElement | null>(null);
+  const sideRef = useRef<HTMLCanvasElement | null>(null), linkRef = useRef<HTMLCanvasElement | null>(null), linkDrag = useRef(false);
   const [detail, setDetail] = useState(400);
   const [hfsRaw, setHfs] = useState<{ dtm: Heightfield | null; dsm: Heightfield | null }>({ dtm: null, dsm: null });
   const [showEdited, setShowEdited] = useState(false);
@@ -113,6 +113,27 @@ function Scene({ p, ts, cm, reloadCloud }: { p: Project; ts: any; cm: any; reloa
   };
   const surfaceFor = (idx: number): 'dsm' | 'dtm' => { const s = st.current; return s.split ? (idx === 0 ? 'dsm' : 'dtm') : (s.show.dsm && s.hfs.dsm && (!s.show.dtm || s.alpha.dsm > 0.5) ? 'dsm' : s.hfs.dtm ? 'dtm' : 'dsm'); };
 
+  // Linked view: marker + approximate footprint of the 3D camera on the flat orthomosaic panel (and the reverse: click/drag there to move the 3D camera).
+  const drawLink = () => {
+    const lc = linkRef.current, s = st.current, f: Frame | null = s.frame, bb = s.bounds;
+    if (!lc || !f || !bb) return; const W = lc.width, H = lc.height, c = lc.getContext('2d')!; c.clearRect(0, 0, W, H);
+    const P = (E: number, N: number): [number, number] => [((E - bb[0]) / (bb[2] - bb[0])) * W, ((bb[3] - N) / (bb[3] - bb[1])) * H];
+    const k = cam.current, g = panes.current[0]?.pane.canvas, asp = g && g.height ? g.width / g.height : 1.4;
+    const tE = k.tx / f.mh + f.cx, tN = k.ty / f.mh + f.cy, hh = (k.dist * Math.tan(0.4)) / f.mh / Math.max(0.25, Math.sin(k.pitch)), hw = (k.dist * Math.tan(0.4) * asp) / f.mh;
+    const fx = -Math.sin(k.yaw), fy = Math.cos(k.yaw), rx = Math.cos(k.yaw), ry = Math.sin(k.yaw);
+    const corner = (a: number, b: number) => P(tE + rx * hw * a + fx * hh * b, tN + ry * hw * a + fy * hh * b);
+    const q = [corner(-1, -1), corner(1, -1), corner(1, 1), corner(-1, 1)], sc = W / 1000;
+    c.save(); c.lineWidth = 3 * sc; c.strokeStyle = '#fff'; c.fillStyle = 'rgba(11,92,171,.14)'; c.beginPath(); q.forEach((a, i) => (i ? c.lineTo(a[0], a[1]) : c.moveTo(a[0], a[1]))); c.closePath(); c.fill(); c.stroke();
+    c.lineWidth = 1.5 * sc; c.strokeStyle = '#0b5cab'; c.stroke();
+    const [cx, cy] = P(tE, tN), r = 9 * sc; c.lineWidth = 2.5 * sc; c.strokeStyle = '#d9480f'; c.beginPath(); c.moveTo(cx - r, cy); c.lineTo(cx + r, cy); c.moveTo(cx, cy - r); c.lineTo(cx, cy + r); c.stroke();
+    c.restore();
+  };
+  const linkMove = (e: { clientX: number; clientY: number }) => {
+    const lc = linkRef.current, s = st.current, f: Frame | null = s.frame, bb = s.bounds; if (!lc || !f || !bb) return;
+    const r = lc.getBoundingClientRect(), sc = Math.min(r.width / lc.width, r.height / lc.height), w = lc.width * sc, h = lc.height * sc, ox = r.left + (r.width - w) / 2, oy = r.top + (r.height - h) / 2;
+    const u = (e.clientX - ox) / w, v = (e.clientY - oy) / h; if (u < 0 || u > 1 || v < 0 || v > 1) return;
+    const E = bb[0] + u * (bb[2] - bb[0]), N = bb[3] - v * (bb[3] - bb[1]); cam.current.tx = (E - f.cx) * f.mh; cam.current.ty = (N - f.cy) * f.mh; schedule();
+  };
   const renderAll = () => {
     raf.current = 0; const s = st.current; if (!s.frame) return;
     panes.current.forEach((pr, idx) => {
@@ -120,6 +141,7 @@ function Scene({ p, ts, cm, reloadCloud }: { p: Project; ts: any; cm: any; reloa
       try { pr.pane.render(optsFor(idx)); } catch (e) { setGlErr(errMsg(e)); return; }
       drawOverlay(idx, pr);
     });
+    drawLink();
   };
 
   const drawOverlay = (idx: number, pr: PaneReg) => {
@@ -205,8 +227,9 @@ function Scene({ p, ts, cm, reloadCloud }: { p: Project; ts: any; cm: any; reloa
   rebuildRef.current = async () => {
     if (bounds && sideOrtho && orthoLayer && sideRef.current) { // flat imagery panel beside the 3D view (imagery only: no classes, no elevation colouring)
       const bb = bounds, asp = (bb[2] - bb[0]) / (bb[3] - bb[1]), W = asp >= 1 ? 1600 : Math.max(256, Math.round(1600 * asp)), H = asp >= 1 ? Math.max(256, Math.round(1600 / asp)) : 1600;
+      if (linkRef.current) { linkRef.current.width = W; linkRef.current.height = H; }
       const sc = sideRef.current; sc.width = W; sc.height = H; const sx = sc.getContext('2d')!; const v2 = new Viewport(); v2.w = W; v2.h = H; v2.fit(bb, 1);
-      sx.fillStyle = '#8a8f87'; sx.fillRect(0, 0, W, H); orthoLayer.draw(sx, v2, 1);
+      sx.fillStyle = '#8a8f87'; sx.fillRect(0, 0, W, H); orthoLayer.draw(sx, v2, 1); schedule();
     }
     if (!bounds || colorBy === 'elevation') return; rebuildCount.current++;
     const bb = bounds, asp = (bb[2] - bb[0]) / (bb[3] - bb[1]), W = asp >= 1 ? 2048 : Math.max(256, Math.round(2048 * asp)), H = asp >= 1 ? Math.max(256, Math.round(2048 / asp)) : 2048;
@@ -426,8 +449,10 @@ function Scene({ p, ts, cm, reloadCloud }: { p: Project; ts: any; cm: any; reloa
       <div className="relative flex min-h-0 flex-1 bg-slate-300">
         {sideOrtho && (
           <div className="relative flex min-w-0 flex-1 items-center justify-center overflow-hidden border-r-2 border-white bg-slate-400">
-            {orthoLayer ? <canvas ref={sideRef} style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <div className="p-3 text-[12px] text-slate-700">No orthomosaic yet. Build the 3D terrain model on the Upload tab (or upload an orthomosaic) and it will appear here.</div>}
-            <span className="pointer-events-none absolute left-2 top-2 rounded bg-black/65 px-1.5 py-0.5 text-[11px] font-bold text-white">ORTHOMOSAIC · flat imagery</span>
+            {orthoLayer ? <div className="relative h-full w-full"><canvas ref={sideRef} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+              <canvas ref={linkRef} className="absolute inset-0" style={{ width: '100%', height: '100%', objectFit: 'contain', cursor: 'crosshair', touchAction: 'none' }}
+                onPointerDown={(e) => { linkDrag.current = true; (e.target as HTMLElement).setPointerCapture(e.pointerId); linkMove(e); }} onPointerMove={(e) => { if (linkDrag.current) linkMove(e); }} onPointerUp={() => { linkDrag.current = false; }} /></div> : <div className="p-3 text-[12px] text-slate-700">No orthomosaic yet. Build the 3D terrain model on the Upload tab (or upload an orthomosaic) and it will appear here.</div>}
+            <span className="pointer-events-none absolute left-2 top-2 rounded bg-black/65 px-1.5 py-0.5 text-[11px] font-bold text-white">ORTHOMOSAIC · flat imagery · blue box = approx. 3D view area; click or drag to move the 3D view</span>
           </div>)}
         <PaneView idx={0} h={handlers(0)} onReady={onReady} onErr={setGlErr} cursor={editing ? "crosshair" : undefined} />
         {split && <PaneView idx={1} h={handlers(1)} onReady={onReady} onErr={setGlErr} cursor={editing ? "crosshair" : undefined} />}

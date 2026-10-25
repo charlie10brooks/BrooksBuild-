@@ -191,3 +191,5 @@ More: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) · [`docs/CLASSIFICATION.md
 On **Upload**, the *Build 3D terrain model* card runs OpenDroneMap on the ingested photos and then, automatically, the terrain job (ground filter + bare-earth estimate). Open **Terrain 3D → Edit points**, lasso or box-select trees or other features, and choose **Remove selected**. Tick **Surface without removed features** for a preview surface rebuilt from the remaining points.
 
 Limits (stated in the UI too): the preview is built from the thinned display sample, gaps are interpolated (estimated), and edits do not change the real DSM/DTM or the full cloud. Photo classes do not feed the 3D model. A real OpenDroneMap run is still unverified here (tests use a stub); it needs your machine.
+
+In **Terrain 3D**, tick **Orthomosaic beside 3D** to see the flat stitched imagery next to the model. The blue box on the imagery is the approximate area the 3D camera is showing (the box is an approximation when the camera is tilted), and clicking or dragging on the imagery moves the 3D view there. The imagery is not elevation evidence.
