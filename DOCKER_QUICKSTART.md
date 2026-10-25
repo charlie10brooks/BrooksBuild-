@@ -1,6 +1,6 @@
 # Run TerraScope with Docker: step by step
 
-**Status: not verified.** The Docker image has never been built (the environment that wrote it could not reach Docker Hub). The steps are right as far as I can tell,
+**Status:** the image build, tests and a start-up check pass on GitHub Actions. A full `docker compose up` with real photos and OpenDroneMap has not been verified yet.
 but expect to fix small things on the first build. If something fails, copy the error text and send it back.
 
 ## 1. Install Docker

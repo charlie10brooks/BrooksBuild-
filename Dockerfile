@@ -1,5 +1,5 @@
-# BUILD NOT VERIFIED: the sandbox that wrote this could not reach Docker Hub (base images are blocked), so no image was built here.
-# Treat it as a starting point and expect to fix small things on first build. See README "What has and has not been verified".
+# Verified by GitHub Actions (.github/workflows/build.yml): the image builds, the backend tests pass inside it, and the app answers
+# on /api/health and serves the web UI. NOT verified: a real OpenDroneMap run (needs the Docker socket and real photos).
 FROM node:20-bookworm-slim AS web
 WORKDIR /web
 COPY frontend/package.json frontend/package-lock.json* ./
