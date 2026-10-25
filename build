@@ -1,0 +1,74 @@
+// Build script: esbuild bundles src/main.tsx; Tailwind CSS v4 is compiled through its JS API (no CLI needed).
+// Usage: node build.mjs [--check] [--watch]
+//   --check  also run `tsc --noEmit`
+// Node resolution: modules come from ./node_modules if present (npm install), else from $TERRASCOPE_NODE_MODULES or /opt/npm-tools/node_modules.
+import fs from 'node:fs';
+import path from 'node:path';
+import { createRequire } from 'node:module';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { execFileSync } from 'node:child_process';
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+const roots = [path.join(here, 'node_modules'), process.env.TERRASCOPE_NODE_MODULES, '/opt/npm-tools/node_modules'].filter(Boolean);
+const root = roots.find((r) => fs.existsSync(path.join(r, 'react')) && fs.existsSync(path.join(r, 'esbuild')));
+if (!root) { console.error('Cannot find react/esbuild. Run `npm install` in frontend/ or set TERRASCOPE_NODE_MODULES.'); process.exit(1); }
+const req = createRequire(path.join(root, 'noop.js'));
+const esbuild = req('esbuild');
+const twDir = path.join(root, 'tailwindcss');
+const { compile } = await import(pathToFileURL(path.join(twDir, 'dist/lib.mjs')).href);
+
+const args = new Set(process.argv.slice(2));
+const dist = path.join(here, 'dist');
+fs.mkdirSync(dist, { recursive: true });
+
+function walk(dir, out = []) {
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) walk(p, out); else if (/\.(tsx?|html|css)$/.test(e.name)) out.push(p);
+  }
+  return out;
+}
+
+async function buildCss() {
+  const src = fs.readFileSync(path.join(here, 'src/styles.css'), 'utf8');
+  const compiler = await compile(src, {
+    base: twDir,
+    loadStylesheet: async (id, base) => {
+      let p;
+      if (id === 'tailwindcss') p = path.join(twDir, 'index.css');
+      else if (id.startsWith('tailwindcss/')) p = path.join(twDir, id.slice('tailwindcss/'.length) + (id.endsWith('.css') ? '' : '.css'));
+      else p = path.resolve(base || twDir, id);
+      return { path: p, base: path.dirname(p), content: fs.readFileSync(p, 'utf8') };
+    },
+  });
+  const cands = new Set();
+  for (const f of [...walk(path.join(here, 'src')), path.join(here, 'index.html')]) {
+    for (const m of fs.readFileSync(f, 'utf8').matchAll(/[^\s"'`<>={}(),;]+/g)) cands.add(m[0]);
+  }
+  fs.writeFileSync(path.join(dist, 'app.css'), compiler.build([...cands]));
+}
+
+const opts = {
+  entryPoints: [path.join(here, 'src/main.tsx')], bundle: true, outfile: path.join(dist, 'app.js'), format: 'iife', target: 'es2022',
+  jsx: 'automatic', nodePaths: [root], minify: !args.has('--watch'), sourcemap: true, logLevel: 'info',
+  define: { 'process.env.NODE_ENV': '"production"' },
+};
+
+async function once() {
+  await buildCss();
+  fs.copyFileSync(path.join(here, 'index.html'), path.join(dist, 'index.html'));
+  await esbuild.build(opts);
+}
+if (args.has('--watch')) {
+  const ctx = await esbuild.context(opts);
+  await once();
+  await ctx.watch();
+  fs.watch(path.join(here, 'src'), { recursive: true }, () => buildCss().catch(console.error));
+} else {
+  await once();
+  if (args.has('--check')) {
+    const tsc = path.join(root, 'typescript/bin/tsc');
+    execFileSync('node', [tsc, '--noEmit', '-p', here], { stdio: 'inherit' });
+  }
+  console.log('built', dist);
+}
