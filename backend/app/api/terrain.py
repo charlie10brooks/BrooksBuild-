@@ -304,6 +304,22 @@ async def cloud_edit(request: Request):
     return ok(await run(_ce_call, CE.edit, app, pid, idx, cls))
 
 
+async def cloud_edit_surface(request: Request):
+    """PREVIEW surface from the edited display sample (removed features left out, holes filled). Same wire format as /terrain/heightmap."""
+    from ..services import cloudedit as CE
+    app, pid = ctx_of(request), request.path_params["pid"]
+    await run(project_or_404, app, pid)
+    q = request.query_params
+    try:
+        maxdim = int(q.get("maxdim", 400))
+        exclude = tuple(int(v) for v in q.get("exclude", "7").split(",") if v.strip())
+    except ValueError:
+        raise ApiError(400, "maxdim and exclude must be integers", "bad_request")
+    r = await run(_ce_call, CE.edited_surface, app, pid, maxdim, exclude)
+    return Response(r["data"].tobytes(), media_type="application/octet-stream",
+                    headers={"X-Grid": json.dumps(r["grid"]), "Cache-Control": "no-store", "Access-Control-Expose-Headers": "X-Grid"})
+
+
 async def cloud_edit_undo(request: Request):
     from ..services import cloudedit as CE
     app, pid = ctx_of(request), request.path_params["pid"]
@@ -820,6 +836,7 @@ routes = [
     Route("/projects/{pid}/pointcloud/build", cloud_build, methods=["POST"]),
     Route("/projects/{pid}/pointcloud/edit", cloud_edit_info),
     Route("/projects/{pid}/pointcloud/edit", cloud_edit, methods=["POST"]),
+    Route("/projects/{pid}/pointcloud/edit/surface", cloud_edit_surface),
     Route("/projects/{pid}/pointcloud/edit/undo", cloud_edit_undo, methods=["POST"]),
     Route("/projects/{pid}/pointcloud/edit/redo", cloud_edit_redo, methods=["POST"]),
     Route("/projects/{pid}/pointcloud/edit/reset", cloud_edit_reset, methods=["POST"]),

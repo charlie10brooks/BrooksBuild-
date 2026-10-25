@@ -169,6 +169,37 @@ class CloudEditTests(TerrainBase):
         self.assertEqual(len(pts["x"]), f["points"])
         self.assertEqual(int((pts["classification"] == 7).sum()), int((c6 == 7).sum()))
 
+    def test_edited_surface_leaves_removed_features_out_and_labels_fill(self):
+        self.build()
+        m, c0 = self.data()
+        r0 = self.c.get(f"{self.u}/pointcloud/edit/surface?maxdim=200")
+        self.assertEqual(r0.status_code, 200, r0.text)
+        g0 = json.loads(r0.headers["X-Grid"])
+        a0 = np.frombuffer(r0.content, "<f4").reshape(g0["height"], g0["width"])
+        self.assertTrue(g0["preview"] and "EDITED" in g0["label"])
+        self.assertEqual(g0["removed_points"], int((c0 == 7).sum()))
+        # remove every high-vegetation point (tree crowns): the surface must drop, and the holes are reported as filled/estimated
+        high = np.nonzero(c0 == 5)[0]
+        self.assertGreater(len(high), 100)
+        self.assertEqual(self.edit(high, 7).status_code, 200)
+        r1 = self.c.get(f"{self.u}/pointcloud/edit/surface?maxdim=200")
+        g1 = json.loads(r1.headers["X-Grid"])
+        a1 = np.frombuffer(r1.content, "<f4").reshape(g1["height"], g1["width"])
+        self.assertEqual(g1["removed_points"], int((c0 == 7).sum()) + len(high))
+        self.assertEqual((g0["width"], g0["height"], g0["res"]), (g1["width"], g1["height"], g1["res"]))   # comparable grids
+        self.assertLess(float(np.nanmax(a1)), float(np.nanmax(a0)))                                       # tree tops are gone
+        self.assertLess(float(np.nanmean(a1)), float(np.nanmean(a0)))
+        self.assertGreater(g1["filled_cells"], 0)
+        self.assertGreater(g1["filled_fraction"], g0["filled_fraction"])                                  # holes left by removal were filled
+        # excluding nothing returns the unedited top surface for the same points
+        r2 = self.c.get(f"{self.u}/pointcloud/edit/surface?maxdim=200&exclude=")
+        self.assertEqual(r2.status_code, 200)
+
+    def test_surface_without_cloud_is_409_and_bad_args_400(self):
+        r = self.c.post("/api/projects", json={"name": "e2", "epsg": 32616})
+        self.assertEqual(self.c.get(f"/api/projects/{r.json()['id']}/pointcloud/edit/surface").status_code, 409)
+        self.assertEqual(self.c.get(f"{self.u}/pointcloud/edit/surface?maxdim=x").status_code, 400)
+
     def test_validation(self):
         self.build()
         self.assertEqual(self.edit([0], 99).status_code, 400)

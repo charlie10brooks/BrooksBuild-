@@ -121,6 +121,24 @@ class OdmStubTests(unittest.TestCase):
         # a follow-up job prepares the orthomosaic for the editor
         self.assertTrue(self.ctx.db.one("SELECT 1 FROM jobs WHERE kind='prepare_ortho'"))
 
+    def test_build_terrain_chain_queues_terrain_after_success_only(self):
+        import json
+        j = self.run_job(terrain_chain={"ground": {"engine": "builtin_pmf"}, "resolution_m": 0.5})
+        self.assertEqual(j["status"], "succeeded", j)
+        row = self.ctx.db.one("SELECT params_json FROM jobs WHERE kind='terrain'")
+        self.assertIsNotNone(row, "terrain job should be queued after a successful ODM run")
+        self.assertEqual(json.loads(row["params_json"])["params"]["ground"]["engine"], "builtin_pmf")
+
+    def test_build_terrain_api_picks_engine_and_refuses_missing_pdal(self):
+        self.add_images(3)
+        r = self.c.post(f"/api/projects/{self.pid}/photogrammetry", json={"preset": "draft", "build_terrain": True, "ground_engine": "pdal_smrf"})
+        self.assertEqual(r.status_code, 409, r.text)                       # no PDAL in the test environment: refused, not silently swapped
+        self.assertEqual(r.json()["error"]["code"], "no_pdal")
+        r = self.c.post(f"/api/projects/{self.pid}/photogrammetry", json={"preset": "draft", "build_terrain": True})
+        self.assertEqual(r.status_code, 202, r.text)
+        self.assertEqual(r.json()["ground_engine"], "builtin_pmf")
+        self.assertIn("built-in ground filter", r.json()["note"])
+
     def test_crash_is_failed_not_success(self):
         self.set_mode("crash")
         j = self.run_job()

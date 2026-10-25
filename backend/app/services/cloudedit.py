@@ -221,3 +221,60 @@ def write_edited_las(app: AppContext, pid: str, dst: Path) -> dict:
         n = len(x)
     L.write_las(dst, x, y, zz, cls, rgb, epsg, offset=(float(np.floor(origin[0])), float(np.floor(origin[1])), float(np.floor(origin[2]))))
     return {"points": n, "total_points": total, "epsg": epsg, "kind": kind}
+
+
+def edited_surface(app: AppContext, pid: str, maxdim: int = 400, exclude=(7,), fill_cells: int = 6) -> dict:
+    """PREVIEW surface built from the display sample with the excluded classes (default: points you marked as noise / removed) left out.
+
+    Per grid cell the highest remaining point is used (so it is a top surface, like a DSM, minus what you removed). Cells that had
+    points only because of removed features, or small gaps next to remaining points (within ``fill_cells`` cells), are filled by linear
+    interpolation: those cells are ESTIMATED, and are reported as ``filled_fraction``. Larger gaps stay empty.
+    This is a visual planning aid built from a thinned sample, not a survey surface, and it does not touch the real DSM/DTM."""
+    from scipy import ndimage as ndi
+    from scipy.interpolate import LinearNDInterpolator, NearestNDInterpolator
+    f, kind = sample_file(app, pid)
+    if f is None:
+        raise CloudEditError("There is no point-cloud display sample yet. Build one first.", "no_cloud", 409)
+    with np.load(f, allow_pickle=False) as z:
+        x, y, zz = z["x"].astype(np.float64), z["y"].astype(np.float64), z["z"].astype(np.float64)
+        origin = [float(v) for v in z["origin"]]
+        cls = apply_overrides(app, pid, z["cls"])
+    keep = ~np.isin(cls, list(exclude))
+    n_keep = int(keep.sum())
+    if n_keep < 50:
+        raise CloudEditError("Too few points remain after removal to build a surface.", "too_few_points", 409)
+    xmin, xmax, ymin, ymax = x.min(), x.max(), y.min(), y.max()
+    ext = max(xmax - xmin, ymax - ymin, 1e-6)
+    area = max((xmax - xmin) * (ymax - ymin), 1e-6)
+    res = max(ext / max(32, min(maxdim, 1200)), float(np.sqrt(area / len(x))) * 1.5)      # based on ALL points so the grid does not change when you remove some
+    w, h = int(np.ceil((xmax - xmin) / res)) + 1, int(np.ceil((ymax - ymin) / res)) + 1
+    col = np.minimum(((x - xmin) / res).astype(np.int64), w - 1)
+    row = np.minimum(((ymax - y) / res).astype(np.int64), h - 1)
+    top = np.full((h, w), -np.inf)
+    np.maximum.at(top, (row[keep], col[keep]), zz[keep])
+    valid = np.isfinite(top)
+    dist = ndi.distance_transform_edt(~valid)
+    want = (~valid) & (dist <= fill_cells)
+    out = np.where(valid, top, np.nan)
+    filled = 0
+    if want.any():
+        rr, cc = np.nonzero(valid)
+        pts = np.column_stack([cc, rr]).astype(float)
+        vals = top[valid]
+        wr, wc = np.nonzero(want)
+        q = np.column_stack([wc, wr]).astype(float)
+        try:
+            v = LinearNDInterpolator(pts, vals)(q)
+        except Exception:                                             # degenerate geometry (collinear points)
+            v = np.full(len(q), np.nan)
+        bad = ~np.isfinite(v)
+        if bad.any():
+            v[bad] = NearestNDInterpolator(pts, vals)(q[bad])
+        out[wr, wc] = v
+        filled = int(len(q))
+    nvalid = int(np.isfinite(out).sum())
+    grid = {"x0": xmin + origin[0] - res / 2, "y0": ymax + origin[1] + res / 2, "res": res, "width": w, "height": h, "stride": 1, "native_res": res,
+            "kind": "estimated", "label": "EDITED surface (preview from sample points; removed features filled by interpolation)",
+            "filled_cells": filled, "filled_fraction": (filled / nvalid) if nvalid else 0.0, "removed_points": int((~keep).sum()),
+            "points_used": n_keep, "preview": True}
+    return {"data": (out + origin[2]).astype("<f4"), "grid": grid}

@@ -303,6 +303,10 @@ def run_odm(app: AppContext, ctx: JobContext) -> dict:
         P.register(app, pid, "odm_dtm", rel(dtm), "raster", {"source": "ODM", "note": "ODM's own SMRF ground estimate; reference only. "
                                                               "The platform's DTM comes from the terrain pipeline."}, ctx.id)
     app.queue.enqueue("prepare_ortho", pid, {"project_id": pid, "rel_path": rel(ortho)})
+    chain = ctx.params.get("terrain_chain")
+    if chain:                                    # "Build 3D terrain model": continue straight into terrain reconstruction
+        app.queue.enqueue("terrain", pid, {"project_id": pid, "use_classification": True, "params": dict(chain)})
+        ctx.log(f"terrain reconstruction queued automatically (ground filter: {(chain.get('ground') or {}).get('engine')})")
     P.register(app, pid, "odm_quality", "odm/odm_report/stats.json" if (work / "odm_report/stats.json").exists() else "odm", "report",
                {"checks": checks, "stats": {k: v for k, v in stats.items() if k != "raw"}}, ctx.id)
     ctx.log("quality checks: " + json.dumps(checks))

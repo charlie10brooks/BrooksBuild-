@@ -10,7 +10,7 @@ import { boundaryRings, elevLabel, errMsg, fmtNum, lengthLabel, toMetres, usePol
 import { DISCLAIMER, downloadBlob } from './terrainPanels';
 
 type ColorBy = 'ortho' | 'classes' | 'elevation' | 'confidence' | 'evidence';
-const CLS_NAMES: Record<number, string> = { 0: 'never classified', 1: 'unclassified', 2: 'ground', 3: 'low vegetation', 4: 'medium vegetation', 5: 'high vegetation', 6: 'building', 7: 'noise' };
+const CLS_NAMES: Record<number, string> = { 0: 'never classified', 1: 'unclassified', 2: 'ground', 3: 'low vegetation', 4: 'medium vegetation', 5: 'high vegetation', 6: 'building', 7: 'noise / removed' };
 const CLS_RGB: V3[] = [[0.55, 0.55, 0.55], [0.75, 0.75, 0.75], [0.62, 0.42, 0.2], [0.6, 0.85, 0.35], [0.25, 0.65, 0.25], [0.06, 0.35, 0.12], [0.85, 0.2, 0.2], [0.6, 0.2, 0.75]];
 const EDIT_CLASSES: [number, string][] = [[2, 'ground'], [1, 'unclassified'], [3, 'low vegetation'], [4, 'medium vegetation'], [5, 'high vegetation'], [6, 'building'], [7, 'noise']];
 const CLS_RGB_EDIT: V3[] = Array.from({ length: 32 }, (_, i) => (i === 31 ? [1, 0.88, 0.1] : CLS_RGB[i] ?? [0.6, 0.6, 0.6]));
@@ -52,7 +52,12 @@ function Scene({ p, ts, cm, reloadCloud }: { p: Project; ts: any; cm: any; reloa
   const panes = useRef<(PaneReg | null)[]>([null, null]);
   const [split, setSplit] = useState(false);
   const [detail, setDetail] = useState(400);
-  const [hfs, setHfs] = useState<{ dtm: Heightfield | null; dsm: Heightfield | null }>({ dtm: null, dsm: null });
+  const [hfsRaw, setHfs] = useState<{ dtm: Heightfield | null; dsm: Heightfield | null }>({ dtm: null, dsm: null });
+  const [showEdited, setShowEdited] = useState(false);
+  const [editedHf, setEditedHf] = useState<Heightfield | null>(null);
+  const [surfBusy, setSurfBusy] = useState(false);
+  // when the edited-surface preview is on, it takes the observed-surface slot (so meshing, picking and hover all use it)
+  const hfs = useMemo(() => (showEdited && editedHf ? { ...hfsRaw, dsm: editedHf } : hfsRaw), [hfsRaw, showEdited, editedHf]);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [show, setShow] = useState({ dtm: true, dsm: false, points: false, lines: true });
@@ -61,7 +66,7 @@ function Scene({ p, ts, cm, reloadCloud }: { p: Project; ts: any; cm: any; reloa
   const [shade, setShade] = useState(true);
   const [pointMode, setPointMode] = useState<0 | 1 | 2>(1);
   const [pointSize, setPointSize] = useState(0.35);
-  const [clsVis, setClsVis] = useState<boolean[]>(Array(32).fill(true));
+  const [clsVis, setClsVis] = useState<boolean[]>(Array.from({ length: 32 }, (_, i) => i !== 7));   // class 7 = removed/noise: hidden by default
   const [cloud, setCloud] = useState<PointData | null>(null);
   const [cloudBusy, setCloudBusy] = useState(false);
   const [cloudJob, setCloudJob] = useState<string | null>(null);
@@ -95,7 +100,7 @@ function Scene({ p, ts, cm, reloadCloud }: { p: Project; ts: any; cm: any; reloa
   const rng = isFinite(vmin) && isFinite(vmax) ? { min: vmin, max: vmax } : { min: 0, max: 1 };
 
   // the latest of everything, for the render loop
-  const st = useRef<any>({}); st.current = { show, alpha, colorBy, shade, pointMode, pointSize, clsVis, split, zexag, ramp, frame, hfs, radius, mpts, measure, rng, mh, mv, bounds, hover, editing, editTool, selMode, target };
+  const st = useRef<any>({}); st.current = { show, alpha, colorBy, shade, pointMode, pointSize, clsVis, split, zexag, ramp, frame, hfs, radius, mpts, measure, rng, mh, mv, bounds, hover, showEdited, editing, editTool, selMode, target };
   const schedule = () => { if (!raf.current) raf.current = requestAnimationFrame(renderAll); };
 
   const optsFor = (idx: number): RenderOpts => {
@@ -131,7 +136,8 @@ function Scene({ p, ts, cm, reloadCloud }: { p: Project; ts: any; cm: any; reloa
     // labels: what this pane shows
     const lab = (t: string, col: string, x: number, y: number) => { c.font = 'bold 11px system-ui'; const wd = c.measureText(t).width + 12; c.fillStyle = col; c.fillRect(x, y, wd, 20); c.fillStyle = '#fff'; c.fillText(t, x + 6, y + 14); return wd; };
     const o = optsFor(idx); let x = 8;
-    if (o.show.dsm) x += lab(`OBSERVED surface (DSM)${!s.split && o.alpha.dsm < 1 ? ` · ${Math.round(o.alpha.dsm * 100)}%` : ''}`, '#0b5cab', x, 8) + 6;
+    if (o.show.dsm && s.showEdited) x += lab('EDITED surface (preview, removed features filled)', '#6d28d9', x, 8) + 6;
+    else if (o.show.dsm) x += lab(`OBSERVED surface (DSM)${!s.split && o.alpha.dsm < 1 ? ` · ${Math.round(o.alpha.dsm * 100)}%` : ''}`, '#0b5cab', x, 8) + 6;
     if (o.show.dtm) x += lab(`ESTIMATED bare earth (DTM)${!s.split && o.alpha.dtm < 1 ? ` · ${Math.round(o.alpha.dtm * 100)}%` : ''}`, '#b45309', x, 8) + 6;
     if (o.show.points) x += lab('Point cloud (observed returns)', '#475569', x, 8) + 6;
     if (s.editing) lab('EDIT MODE: selected points are yellow', '#a16207', x, 8);
@@ -298,6 +304,15 @@ function Scene({ p, ts, cm, reloadCloud }: { p: Project; ts: any; cm: any; reloa
   });
 
   // ------------------------------------------------------------ point editing (display sample only)
+  const fetchSurface = async () => {
+    setSurfBusy(true);
+    try {
+      const r = await fetch(url(`/projects/${pid}/pointcloud/edit/surface?maxdim=${detail}`), { cache: 'no-store' });
+      if (!r.ok) { const j = await r.json().catch(() => null); throw new Error(j?.error?.message ?? `surface: HTTP ${r.status}`); }
+      setEditedHf(makeHeightfield(JSON.parse(r.headers.get('X-Grid') ?? '{}'), await r.arrayBuffer()));
+    } catch (e) { toast('error', errMsg(e)); setShowEdited(false); } finally { setSurfBusy(false); }
+  };
+  useEffect(() => { if (showEdited) fetchSurface(); /* eslint-disable-next-line */ }, [showEdited, editInfo?.head, editInfo?.ops, detail]);
   const refreshHighlight = () => {
     const r = cloudPts.current?.raw, d = dispCls.current, sm = selMask.current; if (!r || !d || !sm) return;
     for (let i = 0; i < r.n; i++) d[i] = sm[i] ? 31 : r.cls[i];
@@ -428,6 +443,13 @@ function Scene({ p, ts, cm, reloadCloud }: { p: Project; ts: any; cm: any; reloa
           {hasDsm && show.dsm && !split && <Slider label="DSM opacity" value={alpha.dsm} min={0.1} max={1} step={0.05} onChange={(v) => setAlpha({ ...alpha, dsm: v })} fmt={(v) => `${Math.round(v * 100)}%`} />}
           {!hasDsm && <div className="text-[11px] text-slate-500">No DSM product.</div>}
           {split && <div className="text-[11px] text-slate-500">Split view: left DSM (observed), right DTM (estimated).</div>}
+          {cm?.available && <>
+            <Check label={<span className="flex items-center gap-1">Surface without removed features <Chip kind="estimated">PREVIEW</Chip></span>} checked={showEdited}
+              onChange={(v) => { setShowEdited(v); if (v) setShow((o) => ({ ...o, dsm: true, dtm: false })); }} />
+            {showEdited && <div className="mb-1 rounded bg-violet-50 p-1.5 text-[11px] text-violet-900">
+              {surfBusy ? 'Rebuilding…' : <>Highest remaining point per cell from the thinned display sample; points you removed are left out.
+                {editedHf && ` Holes where features were removed are filled by interpolation (estimated).`} This is a visual planning aid, not a survey surface, and it does not change the real DSM/DTM.</>}</div>}
+          </>}
           <Check label="Point cloud" checked={show.points} onChange={(v) => setShow({ ...show, points: v })} />
           <Check label="Boundary and saved features" checked={show.lines} onChange={(v) => setShow({ ...show, lines: v })} />
           <Slider label="Vertical exaggeration" value={zexag} min={1} max={10} step={0.5} onChange={(v) => setApp({ zexag: v })} fmt={(v) => `${v}×`} />
@@ -454,7 +476,7 @@ function Scene({ p, ts, cm, reloadCloud }: { p: Project; ts: any; cm: any; reloa
             {Object.entries(clsCounts).map(([k, n]) => { const i = Number(k); return (
               <label key={k} className="flex cursor-pointer items-center gap-1.5 py-0.5 text-[12px]"><input type="checkbox" checked={clsVis[i] !== false} onChange={(e) => setClsVis(clsVis.map((v, j) => (j === i ? e.target.checked : v)))} />
                 <span className="inline-block h-3 w-3 rounded-sm border border-slate-400" style={{ background: `rgb(${CLS_RGB[i]?.map((v) => Math.round(v * 255)).join(',') ?? '150,150,150'})` }} />
-                <span className="flex-1">{cm.class_names?.[k] ?? CLS_NAMES[i] ?? `class ${i}`}</span><span className="font-mono text-[10.5px] text-slate-500">{Number(n).toLocaleString()}</span></label>); })}
+                <span className="flex-1">{i === 7 ? CLS_NAMES[7] : cm.class_names?.[k] ?? CLS_NAMES[i] ?? `class ${i}`}</span><span className="font-mono text-[10.5px] text-slate-500">{Number(n).toLocaleString()}</span></label>); })}
             <div className="mt-1 text-[10.5px] text-slate-500">Ground = points the filter judged to be bare earth. Vegetation classes are by height above the <i>estimated</i> ground.</div>
             {cloudBusy && <div className="text-[11px]">Loading points…</div>}
             <div className="mt-2 border-t border-line pt-2">
@@ -471,10 +493,10 @@ function Scene({ p, ts, cm, reloadCloud }: { p: Project; ts: any; cm: any; reloa
                 </div>
                 <div className="mb-1 text-[11px] text-slate-500">Drag on the view to select. <kbd>Alt</kbd>+drag orbits, <kbd>Shift</kbd>/right-drag pans, wheel zooms. Selection goes through the whole cloud along the view direction (not only the nearest points); un-tick a class above to protect it from selection. Tip: use Top for areas, Low angle for trees vs ground.</div>
                 <div className="mb-1 rounded bg-slate-50 p-1 text-[12px]"><b>{selCount.toLocaleString()}</b> selected <button className="btn !py-0 ml-1" disabled={!selCount} onClick={clearSel}>Clear (Esc)</button></div>
-                <Field label="Set selected points to"><select className="input w-full" value={target} onChange={(e) => setTarget(Number(e.target.value))}>{EDIT_CLASSES.map(([i, n]) => <option key={i} value={i}>{n}</option>)}</select></Field>
+                <Field label="Set selected points to"><select className="input w-full" value={target} onChange={(e) => setTarget(Number(e.target.value))}>{EDIT_CLASSES.map(([i, n]) => <option key={i} value={i}>{i === 7 ? 'noise / removed' : n}</option>)}</select></Field>
                 <div className="mb-1 flex flex-wrap gap-1">
                   <button className="btn btn-primary" disabled={!selCount || editBusy} onClick={() => applyEdit(target)}>{editBusy ? 'Working…' : `Apply to ${selCount.toLocaleString()} points`}</button>
-                  <button className="btn" disabled={!selCount || editBusy} title="Mark as noise (class 7): hides spikes and outliers from the class view without deleting data" onClick={() => applyEdit(7)}>Mark as noise</button>
+                  <button className="btn" disabled={!selCount || editBusy} title="Remove these points (e.g. a tree or a pile): they are hidden and left out of the edited surface. Reversible with Undo; nothing is deleted from the server's data." onClick={() => applyEdit(7)}>Remove selected</button>
                 </div>
                 <div className="flex flex-wrap items-center gap-1">
                   <button className="btn" disabled={!editInfo?.can_undo || editBusy} onClick={() => stepEdit('undo')}>Undo</button>

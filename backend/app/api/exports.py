@@ -137,6 +137,8 @@ class OdmIn(BaseModel):
     options: dict = Field(default_factory=dict)
     exclude_images: List[str] = Field(default_factory=list, max_length=1_000_000)
     allow_ungeoreferenced: bool = False
+    build_terrain: bool = Field(False, description="after photogrammetry, continue automatically into terrain reconstruction (3D model)")
+    ground_engine: Optional[Literal["pdal_smrf", "pdal_pmf", "builtin_pmf"]] = None
 
 
 async def photogrammetry_state(request: Request):
@@ -180,8 +182,18 @@ async def photogrammetry_start(request: Request):
             ODM.build_options(b.preset, b.options, False)          # fail fast on invalid options
         except Exception as e:                                       # noqa: BLE001
             raise ApiError(422, str(e), "validation_error")
-        return app.queue.enqueue("odm", pid, {"project_id": pid, **b.model_dump()}, max_attempts=2)
-    return ok({"job_id": await run(work)}, 202)
+        params = {"project_id": pid, **b.model_dump(exclude={"build_terrain", "ground_engine"})}
+        note = None
+        if b.build_terrain:
+            engine = b.ground_engine or ("pdal_smrf" if shutil.which(app.settings.pdal_bin) else "builtin_pmf")
+            if engine.startswith("pdal") and not shutil.which(app.settings.pdal_bin):
+                raise ApiError(409, "PDAL is not installed here, so the PDAL ground filters cannot run. Choose the built-in filter (less accurate on "
+                               "steep or wide terrain) or install PDAL.", "no_pdal")
+            params["terrain_chain"] = {"ground": {"engine": engine}, "resolution_m": 0.5}
+            if engine == "builtin_pmf":
+                note = "PDAL was not found, so the built-in ground filter will be used. It is less accurate than PDAL's SMRF on steep or wide terrain."
+        return {"job_id": app.queue.enqueue("odm", pid, params, max_attempts=2), "ground_engine": params.get("terrain_chain", {}).get("ground", {}).get("engine"), "note": note}
+    return ok(await run(work), 202)
 
 
 routes = [
