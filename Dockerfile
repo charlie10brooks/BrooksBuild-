@@ -7,11 +7,15 @@ RUN npm install --no-audit --no-fund
 COPY frontend/ ./
 RUN node build.mjs
 
-FROM python:3.12-slim-bookworm
+FROM python:3.12-slim-trixie
 ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
-# pdal: ground filtering (SMRF/PMF) + LAZ.  docker CLI: the worker launches OpenDroneMap as a sibling container via the host socket.
-RUN apt-get update && apt-get install -y --no-install-recommends pdal docker.io libgl1 libglib2.0-0 \
-    && rm -rf /var/lib/apt/lists/*
+# docker CLI: the worker launches OpenDroneMap as a sibling container via the host socket.
+# PDAL (ground filtering SMRF/PMF + LAZ) is installed when the distribution packages it; if not, the image still builds and the app
+# reports "PDAL not found" (the explicit built-in filter still works). Debian bookworm has no pdal package; trixie does.
+RUN apt-get update && apt-get install -y --no-install-recommends docker.io libgl1 libglib2.0-0 \
+    && (apt-get install -y --no-install-recommends pdal || echo "WARNING: pdal package not available; building without PDAL") \
+    && rm -rf /var/lib/apt/lists/* \
+    && (which pdal && pdal --version | head -1 || echo "PDAL: not installed")
 WORKDIR /app
 COPY backend/requirements.txt backend/requirements.txt
 RUN pip install -r backend/requirements.txt
