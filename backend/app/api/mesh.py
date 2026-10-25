@@ -7,8 +7,19 @@ from starlette.requests import Request
 from starlette.responses import FileResponse
 from starlette.routing import Route
 
+import numpy as np
+from starlette.responses import Response
+
+from ..services import meshclass as MC
 from ..services import meshprep as M
 from .deps import ApiError, ctx_of, ok, project_or_404, run
+
+
+def _wrap(fn, *a):
+    try:
+        return fn(*a)
+    except MC.MeshClassError as e:
+        raise ApiError(e.status, e.message, e.code)
 
 
 async def state(request: Request):
@@ -49,9 +60,67 @@ async def texture(request: Request):
     return FileResponse(p, media_type="image/jpeg", headers={"Cache-Control": "no-store"})
 
 
+async def labels_state(request: Request):
+    app, pid = ctx_of(request), request.path_params["pid"]
+    await run(project_or_404, app, pid)
+    return ok(await run(MC.info, app, pid))
+
+
+async def labels_data(request: Request):
+    app, pid = ctx_of(request), request.path_params["pid"]
+    await run(project_or_404, app, pid)
+    b = await run(_wrap, MC.labels_bytes, app, pid)
+    return Response(b, media_type="application/octet-stream", headers={"Cache-Control": "no-store"})
+
+
+async def labels_seed(request: Request):
+    app, pid = ctx_of(request), request.path_params["pid"]
+    await run(project_or_404, app, pid)
+    return ok(await run(_wrap, MC.seed, app, pid))
+
+
+async def labels_edit(request: Request):
+    app, pid = ctx_of(request), request.path_params["pid"]
+    await run(project_or_404, app, pid)
+    try:
+        cls = int(request.query_params.get("cls", ""))
+    except ValueError:
+        raise ApiError(400, "cls must be a class id", "bad_request")
+    raw = await request.body()
+    if len(raw) % 4 or len(raw) == 0 or len(raw) > 4 * 20_000_000:
+        raise ApiError(400, "body must be uint32 little-endian vertex indices", "bad_request")
+    idx = np.frombuffer(raw, dtype="<u4")
+    return ok(await run(_wrap, MC.edit, app, pid, idx, cls))
+
+
+async def labels_undo(request: Request):
+    app, pid = ctx_of(request), request.path_params["pid"]
+    await run(project_or_404, app, pid)
+    return ok(await run(_wrap, MC.undo, app, pid))
+
+
+async def labels_redo(request: Request):
+    app, pid = ctx_of(request), request.path_params["pid"]
+    await run(project_or_404, app, pid)
+    return ok(await run(_wrap, MC.redo, app, pid))
+
+
+async def labels_clear(request: Request):
+    app, pid = ctx_of(request), request.path_params["pid"]
+    await run(project_or_404, app, pid)
+    return ok(await run(_wrap, MC.clear, app, pid))
+
+
 routes = [
     Route("/projects/{pid}/mesh", state),
     Route("/projects/{pid}/mesh/build", build, methods=["POST"]),
     Route("/projects/{pid}/mesh/data", data),
     Route("/projects/{pid}/mesh/texture/{name}", texture),
+    Route("/projects/{pid}/mesh/labels", labels_state),
+    Route("/projects/{pid}/mesh/labels/data", labels_data),
+    Route("/projects/{pid}/mesh/labels/seed", labels_seed, methods=["POST"]),
+    Route("/projects/{pid}/mesh/labels/edit", labels_edit, methods=["POST"]),
+    Route("/projects/{pid}/mesh/labels/undo", labels_undo, methods=["POST"]),
+    Route("/projects/{pid}/mesh/labels/redo", labels_redo, methods=["POST"]),
+    Route("/projects/{pid}/mesh/labels/clear", labels_clear, methods=["POST"]),
 ]

@@ -11,12 +11,12 @@ import { View3D } from './views/View3D';
 import { Exports } from './views/Exports';
 
 const TABS: { id: View; label: string; key: string }[] = [
-  { id: 'dashboard', label: 'Dashboard', key: '1' }, { id: 'upload', label: 'Upload', key: '2' }, { id: 'classify', label: 'Classify', key: '3' },
+  { id: 'dashboard', label: 'Image', key: '1' }, { id: 'upload', label: 'Upload', key: '2' }, { id: 'classify', label: 'Classify', key: '3' },
   { id: 'terrain', label: 'Terrain 2D', key: '4' }, { id: 'view3d', label: 'Terrain 3D', key: '5' }, { id: 'planning', label: 'Planning', key: '6' }, { id: 'exports', label: 'Export', key: '7' },
 ];
 
 const SHORTCUTS: [string, string][] = [
-  ['Alt + 1 … 7', 'Switch view (Dashboard, Upload, Classify, Terrain 2D, 3D, Planning, Export)'], ['Ctrl/Cmd + Z', 'Undo last classification edit'], ['Ctrl/Cmd + Shift + Z or Ctrl + Y', 'Redo'],
+  ['Alt + 1 … 7', 'Switch view (Image, Upload, Classify, Terrain 2D, 3D, Planning, Export)'], ['Ctrl/Cmd + Z', 'Undo last classification edit'], ['Ctrl/Cmd + Shift + Z or Ctrl + Y', 'Redo'],
   ['S', 'Sample tool (inspect pixel)'], ['B', 'Brush'], ['P', 'Polygon'], ['R', 'Rectangle'], ['L', 'Lasso'], ['F', 'Flood fill'], ['M', 'Select similar colour'], ['E', 'Erase to Unknown'],
   ['[ and ]', 'Smaller / larger brush'], ['0 … 9', 'Choose class by id'], ['Enter / Esc', 'Apply / cancel the current polygon or selection preview'], ['Backspace', 'Remove the last polygon vertex'],
   ['Space + drag, or middle-drag', 'Pan'], ['Wheel', 'Zoom at cursor'], ['H', 'Toggle class overlay'], ['\\', 'Hold to peek at imagery without overlay'], ['?', 'This help'],

@@ -199,3 +199,9 @@ In **Terrain 3D**, tick **Orthomosaic beside 3D** to see the flat stitched image
 With the **Balanced** or **High** photogrammetry setting, OpenDroneMap also produces a textured 3D mesh (the photos projected onto real 3D geometry). The platform converts it for the browser (`mesh_prep` job, `terrain/mesh/`) and **Terrain 3D → 📷 Photo model** lets you orbit it. The **Draft** setting (`--fast-orthophoto`) skips this model.
 
 It is an *observed* model (trees and roofs included), not bare earth, and the point-removal and measure tools do not apply to it. The platform checks the mesh against the project's DSM extent and tells you if they do not line up. **Unverified:** I could only test this with a stub ODM and a synthetic mesh, so ODM's real OBJ/MTL layout and its coordinate-offset convention are untested until a real run.
+
+## The Image tab and labelling the 3D model
+
+The first tab (formerly "Dashboard") is now called **Image** and opens on the **3D photo model**, with the flights map, products and jobs underneath. In **Classify**, the **3D photo model** switch lets you lasso or box-select parts of the stitched model and give them a class, with colours drawn on the model. **Copy orthomosaic classes onto the model** starts you from the 2D classification.
+
+Limits, stated in the UI too: the labels live on the 3D model only (they do not change the orthomosaic classification, point-cloud classes or any elevation result); copied labels follow the map position under each point, so tree sides and walls take the ground class beneath them; selection ignores surfaces hidden behind nearer geometry using a coarse screen-space test, so very thin or edge-on surfaces can be missed; labels are discarded if the model is rebuilt. Tested with a stubbed ODM and a synthetic model, not real ODM output.

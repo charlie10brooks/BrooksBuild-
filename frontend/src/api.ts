@@ -138,6 +138,16 @@ export const api = {
   exportDelete: (id: string, eid: string) => del(`/projects/${id}/exports/${eid}`),
   meshState: (id: string) => get<any>(`/projects/${id}/mesh`),
   meshBuild: (id: string) => post<{ job_id: string }>(`/projects/${id}/mesh/build`, {}),
+  meshLabels: (id: string) => get<any>(`/projects/${id}/mesh/labels`),
+  meshLabelsSeed: (id: string) => post<any>(`/projects/${id}/mesh/labels/seed`, {}),
+  meshLabelsUndo: (id: string) => post<any>(`/projects/${id}/mesh/labels/undo`, {}),
+  meshLabelsRedo: (id: string) => post<any>(`/projects/${id}/mesh/labels/redo`, {}),
+  meshLabelsClear: (id: string) => post<any>(`/projects/${id}/mesh/labels/clear`, {}),
+  meshLabelsEdit: async (id: string, cls: number, idx: Uint32Array) => {
+    const r = await fetch(url(`/projects/${id}/mesh/labels/edit?cls=${cls}`), { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: idx.buffer.slice(idx.byteOffset, idx.byteOffset + idx.byteLength) as ArrayBuffer });
+    const j = await r.json().catch(() => null); if (!r.ok) throw new ApiError(r.status, j?.error?.code ?? 'error', j?.error?.message ?? `HTTP ${r.status}`); return j;
+  },
+  meshLabelsData: async (id: string): Promise<Uint8Array> => new Uint8Array(await (await fetch(url(`/projects/${id}/mesh/labels/data`), { cache: 'no-store' })).arrayBuffer()),
   odmState: (id: string) => get(`/projects/${id}/photogrammetry`),
   odmStart: (id: string, b: any) => post<{ job_id: string }>(`/projects/${id}/photogrammetry`, b),
 };

@@ -62,7 +62,7 @@ function NoTerrain({ ts, p, reload }: { ts: TerrainState; p: Project; reload: ()
       <Empty title="No terrain model yet">
         {hasCloud
           ? 'A point cloud is available. Run terrain reconstruction (right panel) to separate ground from canopy and build the surface (DSM), bare-earth estimate (DTM) and confidence layers.'
-          : 'Terrain reconstruction needs a photogrammetric point cloud. Run OpenDroneMap from the Dashboard (or import a point cloud on the Upload tab), then return here.'}
+          : 'Terrain reconstruction needs a photogrammetric point cloud. Run OpenDroneMap from the Image tab (or import a point cloud on the Upload tab), then return here.'}
       </Empty>
       <RightPanel>
         <Notice kind="estimate">{ts.notice}</Notice>

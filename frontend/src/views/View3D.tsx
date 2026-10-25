@@ -468,7 +468,7 @@ function Scene({ p, ts, cm, reloadCloud }: { p: Project; ts: any; cm: any; reloa
           <PaneView idx={0} h={handlers(0)} onReady={onReady} onErr={setGlErr} cursor={editing ? "crosshair" : undefined} />
           {split && <PaneView idx={1} h={handlers(1)} onReady={onReady} onErr={setGlErr} cursor={editing ? "crosshair" : undefined} />}
         </div>
-        {meshMode && <MeshView pid={pid} jobsTick={jobsTick} setCamApi={(a) => { meshApi.current = a; }} />}
+        {meshMode && <MeshView pid={pid} jobsTick={jobsTick} onApi={(a) => { meshApi.current = a; }} />}
         {loadErr && <div className="absolute left-2 top-10 z-10"><Notice kind="warn">{loadErr}</Notice></div>}
         {hover && !measure && (
           <div className="pointer-events-none absolute right-2 top-9 w-[230px] rounded border border-line bg-white/95 p-2 text-[12px] shadow">

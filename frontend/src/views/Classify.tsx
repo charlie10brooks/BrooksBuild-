@@ -6,6 +6,7 @@ import { MaskLayer, MaskMode, OrthoLayer } from '../tiles';
 import { bump, getState, setApp, setStatus, toast, useApp, useProject } from '../store';
 import { Viewport } from '../viewport';
 import { boundaryRings, clamp, errMsg, fmtNum, toMetres, useLocal, usePoll } from '../util';
+import { MeshClassify } from './MeshClassify';
 
 type Tool = 'hand' | 'sample' | 'brush' | 'polygon' | 'rect' | 'lasso' | 'fill' | 'similar';
 const TOOLS: { id: Tool; label: string; key: string; icon: string; tip: string }[] = [
@@ -41,10 +42,18 @@ export function Classify() {
   const jt = useApp((s) => s.jobsTick);
   const ortho = usePoll(() => api.ortho(p.id), 0, [p.id, jt]);
   const info = usePoll(() => (ortho.data?.available ? api.classInfo(p.id) : Promise.resolve(null)), 0, [p.id, ortho.data?.available, ortho.data?.created_at]);
-  if (ortho.loading) return <div className="m-auto text-slate-500">Loading…</div>;
-  if (!ortho.data?.available) return <Empty title="No orthomosaic yet">Classification works on the orthomosaic. Run photogrammetry on the Dashboard, or import an existing orthomosaic GeoTIFF on the Upload tab.<div className="mt-2"><button className="btn btn-primary" onClick={() => setApp({ view: 'upload' })}>Go to Upload</button></div></Empty>;
-  if (!info.data) return <div className="m-auto text-slate-500">{info.error ? <span className="text-warn">{info.error}</span> : 'Loading classification…'}</div>;
-  return <Editor ortho={ortho.data} info={info.data} reloadInfo={info.reload} key={p.id + ':' + ortho.data.created_at} />;
+  const [mode, setMode] = useLocal<'2d' | '3d'>('ts.classify.mode', '2d');
+  const bar = (
+    <div className="flex shrink-0 items-center gap-1 border-b border-line bg-white px-2 py-1">
+      <span className="mr-1 text-[12px] text-slate-600">Classify on:</span>
+      <button className={`btn ${mode === '2d' ? 'btn-on' : ''}`} onClick={() => setMode('2d')}>Orthomosaic (flat map)</button>
+      <button className={`btn ${mode === '3d' ? 'btn-on' : ''}`} onClick={() => setMode('3d')} title="Label the stitched 3D photo model directly">3D photo model</button>
+    </div>);
+  if (mode === '3d') return <div className="flex min-h-0 flex-1 flex-col">{bar}<MeshClassify pid={p.id} key={p.id} /></div>;
+  if (ortho.loading) return <div className="flex min-h-0 flex-1 flex-col">{bar}<div className="m-auto text-slate-500">Loading…</div></div>;
+  if (!ortho.data?.available) return <div className="flex min-h-0 flex-1 flex-col">{bar}<Empty title="No orthomosaic yet">Classification works on the orthomosaic. Run photogrammetry on the Image tab, or import an existing orthomosaic GeoTIFF on the Upload tab.<div className="mt-2"><button className="btn btn-primary" onClick={() => setApp({ view: 'upload' })}>Go to Upload</button></div></Empty></div>;
+  if (!info.data) return <div className="flex min-h-0 flex-1 flex-col">{bar}<div className="m-auto text-slate-500">{info.error ? <span className="text-warn">{info.error}</span> : 'Loading classification…'}</div></div>;
+  return <div className="flex min-h-0 flex-1 flex-col">{bar}<Editor ortho={ortho.data} info={info.data} reloadInfo={info.reload} key={p.id + ':' + ortho.data.created_at} /></div>;
 }
 
 function Editor({ ortho, info, reloadInfo }: { ortho: OrthoInfo; info: ClassInfo; reloadInfo: () => void }) {

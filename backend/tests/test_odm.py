@@ -190,6 +190,43 @@ class OdmStubTests(unittest.TestCase):
         self.assertEqual((r.status_code, r.json()["error"]["code"]), (409, "no_textured_model"))
         self.assertEqual(self.c.get(f"/api/projects/{self.pid}/mesh/data").status_code, 404)
 
+    def test_mesh_labels_seed_edit_undo_redo(self):
+        import numpy as np
+        from app.core.tiling import Window
+        from app.services import ortho as O
+        j = self.run_job()
+        self.assertEqual(j["status"], "succeeded", j)
+        mask, _ = O.class_rasters(self.ctx, self.pid)
+        mask.write(Window(0, 0, 15, 30), np.full((30, 15), 3, np.uint8))          # west part of the map labelled class 3
+        u = f"/api/projects/{self.pid}/mesh/labels"
+        st = self.c.get(u).json()
+        self.assertTrue(st["available"] and st["can_seed"] and not st["has_labels"], st)
+        self.assertEqual(self.c.get(u + "/data").content, bytes(4))                # no labels yet: all unclassified
+        sd = self.c.post(u + "/seed").json()
+        self.assertEqual(sd["counts"], {"0": 2, "3": 2}, sd)                         # vertices at x=5 are inside the labelled part, x=25 are not
+        self.assertEqual(sd["seeded_outside"], 0)
+        self.assertEqual(list(self.c.get(u + "/data").content), [3, 0, 0, 3])
+        ed = self.c.post(u + "/edit?cls=2", content=np.array([1, 2], "<u4").tobytes()).json()
+        self.assertEqual(ed["counts"], {"2": 2, "3": 2}, ed)
+        self.assertTrue(ed["can_undo"] and not ed["can_redo"])
+        self.assertEqual(self.c.post(u + "/undo").json()["counts"], {"0": 2, "3": 2})
+        self.assertEqual(self.c.post(u + "/redo").json()["counts"], {"2": 2, "3": 2})
+        self.assertEqual(self.c.post(u + "/clear").json()["counts"], {"0": 4})
+        self.assertEqual(self.c.post(u + "/undo").json()["counts"], {"2": 2, "3": 2})
+        self.assertEqual(self.c.post(u + "/edit?cls=99", content=np.array([0], "<u4").tobytes()).json()["error"]["code"], "bad_class")
+        self.assertEqual(self.c.post(u + "/edit?cls=2", content=np.array([77], "<u4").tobytes()).json()["error"]["code"], "bad_selection")
+        self.assertEqual(self.c.post(u + "/edit?cls=2", content=b"abc").status_code, 400)
+
+    def test_mesh_labels_discarded_when_the_model_is_rebuilt(self):
+        import numpy as np
+        j = self.run_job()
+        self.assertEqual(j["status"], "succeeded", j)
+        u = f"/api/projects/{self.pid}/mesh/labels"
+        self.c.post(u + "/edit?cls=2", content=np.array([0], "<u4").tobytes())
+        self.assertTrue(self.c.get(u).json()["has_labels"])
+        self.run_job()                                                           # a new ODM run rebuilds the model
+        self.assertFalse(self.c.get(u).json()["has_labels"])
+
     def test_crash_is_failed_not_success(self):
         self.set_mode("crash")
         j = self.run_job()
