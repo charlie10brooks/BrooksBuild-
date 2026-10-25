@@ -25,7 +25,7 @@ jobs:
       - name: Run the backend tests inside the image
         run: |
           set -o pipefail
-          docker run --rm terrascope:ci python -m unittest discover -s tests -t . 2>&1 | tee test.log || {
+          docker run --rm terrascope:ci sh -c "pip install -q -r requirements-dev.txt && python -m unittest discover -s tests -t ." 2>&1 | tee test.log || {
             echo "::error title=tests failed::$(tail -n 40 test.log | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')"; exit 1; }
 
       - name: Start the app and check that it answers

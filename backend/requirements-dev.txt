@@ -1,2 +1,4 @@
 -r requirements.txt
-httpx>=0.27              # Starlette's TestClient. (The dev environment had an httpx-compatible package installed.)
+# Starlette's TestClient needs an HTTP client package: newer Starlette asks for httpx2, older versions for httpx.
+httpx>=0.27
+httpx2
