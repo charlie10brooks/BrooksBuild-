@@ -1,4 +1,4 @@
-# BrooksBuild-# TerraScope
+# TerraScope
 
 Drone-based terrain reconstruction and vegetation removal for **residential construction planning on wooded lots**.
 

@@ -1,0 +1,23 @@
+# NOT RUN when written (no Docker daemon in the development sandbox). Services: the API (also serves the web UI) and one worker.
+# There is no PostgreSQL, Redis or Celery here: persistence is SQLite (WAL) and the job queue lives in that database.
+# deploy/postgres_schema.sql is a PostgreSQL/PostGIS translation of the schema for a future migration; nothing uses it yet.
+x-app: &app
+  build: .
+  image: terrascope:dev
+  env_file: .env
+  environment:
+    TERRASCOPE_DATA_DIR: ${TERRASCOPE_DATA_DIR:?set TERRASCOPE_DATA_DIR in .env to an absolute host path}
+  volumes:
+    - ${TERRASCOPE_DATA_DIR}:${TERRASCOPE_DATA_DIR}          # same path inside and outside (see .env.example)
+  restart: unless-stopped
+
+services:
+  api:
+    <<: *app
+    ports: ["8000:8000"]
+  worker:
+    <<: *app
+    command: ["python", "-m", "app.workers.runner"]
+    volumes:
+      - ${TERRASCOPE_DATA_DIR}:${TERRASCOPE_DATA_DIR}
+      - /var/run/docker.sock:/var/run/docker.sock             # lets the worker run OpenDroneMap. This is root-equivalent on the host.

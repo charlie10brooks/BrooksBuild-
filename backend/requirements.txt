@@ -1,0 +1,16 @@
+# Runtime dependencies. The versions listed in the comment were the ones the test-suite was actually run with;
+# the lower bounds are conservative guesses that have NOT been tested.
+starlette>=0.37          # tested with 1.6.0
+uvicorn>=0.30            # tested with 0.53.0
+pydantic>=2.5            # tested with 2.13.5
+python-multipart>=0.0.9
+numpy>=1.26              # tested with 2.5.3
+scipy>=1.11              # tested with 1.18.1
+opencv-python-headless>=4.8   # tested with 5.0.0.93
+pillow>=10.0             # tested with 12.3.0
+tifffile>=2023.7         # tested with 2026.9.15
+imagecodecs>=2023.7      # LZW/deflate/JPEG-in-TIFF for tifffile
+reportlab>=4.0           # PDF report; tested with 5.0.1
+scikit-learn>=1.3        # "learned" classification model (logistic regression on your corrections)
+# optional: pretrained segmentation in ONNX form (TERRASCOPE_SEGMENTATION_MODEL)
+onnxruntime>=1.16        # tested with 1.29.0

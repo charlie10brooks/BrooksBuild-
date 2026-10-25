@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: Inter, "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --color-panel: #f6f7f9;
+  --color-line: #cfd5dc;
+  --color-ink: #1c2530;
+  --color-accent: #1f5f8b;
+  --color-accent-dark: #174a6d;
+  --color-warn: #b3261e;
+  --color-observed: #1b6ca8;
+  --color-estimated: #b5651d;
+}
+
+html, body, #root { height: 100%; }
+body { margin: 0; font-size: 13px; overflow: hidden; }
+* { scrollbar-width: thin; scrollbar-color: #b6bec8 transparent; }
+.btn { @apply inline-flex items-center gap-1 rounded border border-line bg-white px-2 py-1 text-[12px] leading-4 text-ink hover:bg-slate-50 disabled:opacity-45 disabled:pointer-events-none; }
+.btn-primary { @apply border-accent bg-accent text-white hover:bg-accent-dark; }
+.btn-danger { @apply border-warn text-warn hover:bg-red-50; }
+.btn-on { @apply border-accent bg-sky-100 text-accent-dark; }
+.input { @apply rounded border border-line bg-white px-1.5 py-1 text-[12px] text-ink; }
+.sec-title { @apply px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500; }
+.chip { @apply inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] leading-4; }
+canvas { touch-action: none; display: block; }
+input[type=range] { accent-color: #1f5f8b; }
+kbd { @apply rounded border border-line bg-white px-1 text-[10px] font-mono; }
+#right-slot:empty { display: none !important; }
