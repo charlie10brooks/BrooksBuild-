@@ -51,6 +51,8 @@ function Scene({ p, ts, cm, reloadCloud }: { p: Project; ts: any; cm: any; reloa
   const zexag = useApp((s) => s.zexag), ramp = useApp((s) => s.ramp);
   const panes = useRef<(PaneReg | null)[]>([null, null]);
   const [split, setSplit] = useState(false);
+  const [sideOrtho, setSideOrtho] = useState(false);
+  const sideRef = useRef<HTMLCanvasElement | null>(null);
   const [detail, setDetail] = useState(400);
   const [hfsRaw, setHfs] = useState<{ dtm: Heightfield | null; dsm: Heightfield | null }>({ dtm: null, dsm: null });
   const [showEdited, setShowEdited] = useState(false);
@@ -201,6 +203,11 @@ function Scene({ p, ts, cm, reloadCloud }: { p: Project; ts: any; cm: any; reloa
   const rebuildSoon = () => { clearTimeout(rebuildTimer.current); if (rebuildCount.current > 40) return; rebuildTimer.current = setTimeout(() => rebuildRef.current(), 250); };
   const applyDrape = () => { const cv = drapeCanvas.current; panes.current.forEach((pr) => { if (pr && cv) pr.pane.setDrape(cv); }); schedule(); };
   rebuildRef.current = async () => {
+    if (bounds && sideOrtho && orthoLayer && sideRef.current) { // flat imagery panel beside the 3D view (imagery only: no classes, no elevation colouring)
+      const bb = bounds, asp = (bb[2] - bb[0]) / (bb[3] - bb[1]), W = asp >= 1 ? 1600 : Math.max(256, Math.round(1600 * asp)), H = asp >= 1 ? Math.max(256, Math.round(1600 / asp)) : 1600;
+      const sc = sideRef.current; sc.width = W; sc.height = H; const sx = sc.getContext('2d')!; const v2 = new Viewport(); v2.w = W; v2.h = H; v2.fit(bb, 1);
+      sx.fillStyle = '#8a8f87'; sx.fillRect(0, 0, W, H); orthoLayer.draw(sx, v2, 1);
+    }
     if (!bounds || colorBy === 'elevation') return; rebuildCount.current++;
     const bb = bounds, asp = (bb[2] - bb[0]) / (bb[3] - bb[1]), W = asp >= 1 ? 2048 : Math.max(256, Math.round(2048 * asp)), H = asp >= 1 ? Math.max(256, Math.round(2048 / asp)) : 2048;
     const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const c = cv.getContext('2d')!;
@@ -214,7 +221,7 @@ function Scene({ p, ts, cm, reloadCloud }: { p: Project; ts: any; cm: any; reloa
     }
     drapeCanvas.current = cv; applyDrape();
   };
-  useEffect(() => { rebuildCount.current = 0; setDrapeBusy(true); rebuildRef.current(); const t = setTimeout(() => setDrapeBusy(false), 1200); return () => clearTimeout(t); /* eslint-disable-next-line */ }, [colorBy, orthoLayer, mask, bounds]);
+  useEffect(() => { rebuildCount.current = 0; setDrapeBusy(true); rebuildRef.current(); const t = setTimeout(() => setDrapeBusy(false), 1200); return () => clearTimeout(t); /* eslint-disable-next-line */ }, [colorBy, orthoLayer, mask, bounds, sideOrtho]);
   useEffect(() => { if (colorBy !== 'elevation') return; panes.current.forEach((pr) => pr?.pane.setDrape(null)); schedule(); }, [colorBy]);
 
   // ------------------------------------------------------------ push data to panes
@@ -411,11 +418,17 @@ function Scene({ p, ts, cm, reloadCloud }: { p: Project; ts: any; cm: any; reloa
         <button className={`btn ${measure ? 'btn-on' : ''}`} onClick={() => { setMeasure(!measure); if (!measure && editing) toggleEdit(); }} title="Click points on the surface to measure 3D distance and slope">⟷ Measure</button>
         {mpts.length > 0 && <button className="btn" onClick={() => setMpts([])}>Clear {mpts.length} pt</button>}
         <Check label="Split-screen: observed | estimated" checked={split} onChange={(v) => { setSplit(v); }} title="Left = DSM (what the camera saw). Right = DTM (estimated bare earth). Cameras are linked." />
+        <Check label="Orthomosaic beside 3D" checked={sideOrtho} onChange={(v) => { rebuildCount.current = 0; setSideOrtho(v); }} title="Shows the stitched orthomosaic (flat, top-down imagery) next to the 3D view for comparison. Imagery only; it is not elevation evidence." />
         <div className="flex-1" />
         {loading && <span className="text-[12px] text-slate-500">Loading terrain…</span>}{drapeBusy && !loading && <span className="text-[12px] text-slate-500">Draping imagery…</span>}
         <button className="btn" onClick={savePng}>Save view (PNG)</button>
       </div>
       <div className="relative flex min-h-0 flex-1 bg-slate-300">
+        {sideOrtho && (
+          <div className="relative flex min-w-0 flex-1 items-center justify-center overflow-hidden border-r-2 border-white bg-slate-400">
+            {orthoLayer ? <canvas ref={sideRef} style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <div className="p-3 text-[12px] text-slate-700">No orthomosaic yet. Build the 3D terrain model on the Upload tab (or upload an orthomosaic) and it will appear here.</div>}
+            <span className="pointer-events-none absolute left-2 top-2 rounded bg-black/65 px-1.5 py-0.5 text-[11px] font-bold text-white">ORTHOMOSAIC · flat imagery</span>
+          </div>)}
         <PaneView idx={0} h={handlers(0)} onReady={onReady} onErr={setGlErr} cursor={editing ? "crosshair" : undefined} />
         {split && <PaneView idx={1} h={handlers(1)} onReady={onReady} onErr={setGlErr} cursor={editing ? "crosshair" : undefined} />}
         {loadErr && <div className="absolute left-2 top-10 z-10"><Notice kind="warn">{loadErr}</Notice></div>}
