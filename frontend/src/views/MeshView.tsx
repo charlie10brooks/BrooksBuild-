@@ -181,9 +181,10 @@ export function MeshView({ pid, jobsTick, onApi, cls }: { pid: string; jobsTick:
   if (err) return <div className="m-auto max-w-[520px] p-4"><Notice kind="warn"><b>Photo model unavailable.</b> {err}</Notice></div>;
   if (!meta) return <div className="m-auto p-4 text-[12px] text-slate-600">Checking for a photo-textured model…</div>;
   if (!meta.available) return (
-    <div className="m-auto max-w-[520px] p-4"><Notice kind="info"><b>No 3D model yet.</b> Add your photos and press <b>Process</b> on the <b>Image</b> tab. {meta.reason}</Notice>
-      {meta.source_available && <button className="btn btn-primary mt-2" disabled={busy} onClick={prepare}>{busy ? 'Starting…' : 'Prepare the textured model'}</button>}
-      <div className="mt-2 text-[12px] text-slate-600">Use the <b>Standard</b> or <b>Detailed</b> quality setting (the old draft setting skips the 3D model).</div></div>);
+    <div className="m-auto max-w-[520px] p-4">
+      <Notice kind="info"><b>No 3D model yet.</b> {meta.source_available ? 'The model from your photos is ready to be prepared for viewing.' : 'Add your photos and press Process on the Image tab.'}</Notice>
+      {meta.source_available && <button className="btn btn-primary mt-2" disabled={busy} onClick={prepare}>{busy ? 'Starting…' : 'Prepare the 3D model'}</button>}
+    </div>);
   const selecting = (cls?.tool ?? 'orbit') !== 'orbit';
   return (
     <div className="relative min-w-0 flex-1">

@@ -18,7 +18,7 @@ export function Pipeline({ p }: { p: Project }) {
   const jobs = usePoll(() => api.jobs(p.id, 'limit=40'), 3000, [p.id, jt]);
   const mesh = usePoll(() => api.meshState(p.id), 0, [p.id, jt]);
   const lab = usePoll(() => api.meshLabels(p.id), 0, [p.id, jt]);
-  const [preset, setPreset] = useState<'balanced' | 'high'>('balanced');
+  const [preset, setPreset] = useState<'balanced' | 'high'>('high');
   const [ungeo, setUngeo] = useState(false);
   const [busy, setBusy] = useState(false);
   const [again, setAgain] = useState(false);
@@ -71,8 +71,8 @@ export function Pipeline({ p }: { p: Project }) {
         </div>
         {!active && (!modelReady || again) && <>
           <div className="mb-1 flex flex-wrap items-end gap-3">
-            <Field label="Quality"><select className="input" value={preset} onChange={(e) => setPreset(e.target.value as any)}>
-              <option value="balanced">Standard (recommended)</option><option value="high">Detailed (slower, needs a lot of memory)</option></select></Field>
+            {odm?.status === 'failed' && <Field label="If it ran out of memory"><select className="input" value={preset} onChange={(e) => setPreset(e.target.value as any)}>
+              <option value="high">Detailed (default)</option><option value="balanced">Standard (lighter on memory)</option></select></Field>}
             <div className="mb-1.5 text-[12px] text-slate-500"><Kv k="Photos" v={`${s.images} (${s.images_with_gps} with GPS)`} /></div>
           </div>
           {(s.blocking ?? []).some((m: string) => m.startsWith('No image has GPS')) && <label className="mb-1 flex cursor-pointer items-center gap-1.5 text-[12px]"><input type="checkbox" checked={ungeo} onChange={(e) => setUngeo(e.target.checked)} />My photos have no GPS. Continue anyway (the model will not be placed on the map).</label>}
@@ -81,7 +81,7 @@ export function Pipeline({ p }: { p: Project }) {
             <button className="btn btn-primary" disabled={busy || blocked.length > 0} onClick={go}>{busy ? 'Starting…' : modelReady ? 'Process again' : 'Process photos into a 3D model'}</button>
             {modelReady && <button className="btn" onClick={() => setAgain(false)}>Cancel</button>}
           </div>
-          <div className="mt-1 text-[11px] text-slate-500">Standard is the right first try. It can take from minutes to hours depending on the number of photos and your computer.</div>
+          <div className="mt-1 text-[11px] text-slate-500">This builds the most detailed model, so it can take from minutes to hours and needs plenty of memory. If it fails for lack of memory, a lighter setting will appear here.</div>
         </>}
         {!active && modelReady && !again && <div className="flex flex-wrap gap-2">
           <button className="btn btn-primary" onClick={() => setApp({ view: 'classify' })}>Check and fix labels</button>

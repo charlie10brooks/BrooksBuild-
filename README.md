@@ -211,3 +211,5 @@ Limits, stated in the UI too: the labels live on the 3D model only (they do not 
 On the **Image** tab, **Process photos into a 3D model** runs everything in order: OpenDroneMap builds the textured 3D model, the model is prepared for the browser, the ground is worked out for the Terrain pages, and the model is labelled automatically from its own photos (colour rules on the model's texture, with vegetation split into grass / brush / trees by height above the estimated ground when a ground estimate lines up). Check and fix the labels in **Label**. The flat orthomosaic is still produced and used in the background (terrain), but it is no longer the main way to label.
 
 The automatic labels are guesses from colour and height, not a trained model. Unverified on real ODM output.
+
+The **Process** button always uses OpenDroneMap's **high** quality preset. If a run fails for lack of memory, a lighter (balanced) option appears on the card.

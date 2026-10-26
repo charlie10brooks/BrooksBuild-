@@ -53,7 +53,7 @@ export function MeshClassify({ pid }: { pid: string }) {
 
   if (!info) return <div className="m-auto text-slate-500">Loading…</div>;
   if (!info.available) return (
-    <div className="m-auto max-w-[520px] p-4"><Notice kind="info"><b>There is no 3D model yet.</b> Add your photos and press <b>Process</b> on the <b>Image</b> tab first. {info.reason}</Notice>
+    <div className="m-auto max-w-[520px] p-4"><Notice kind="info"><b>There is no 3D model yet.</b> Add your photos and press <b>Process</b> on the <b>Image</b> tab first.</Notice>
       <MeshView pid={pid} jobsTick={jt} /></div>);
   return (
     <div className="flex min-h-0 flex-1">
