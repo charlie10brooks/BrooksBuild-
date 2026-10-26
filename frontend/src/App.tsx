@@ -5,21 +5,18 @@ import { Modal, Chip } from './ui';
 import { setApp, useApp, useProject, View, selectProject } from './store';
 import { Dashboard } from './views/Dashboard';
 import { Upload } from './views/Upload';
-import { Classify } from './views/Classify';
 import { TerrainView } from './views/Terrain';
 import { View3D } from './views/View3D';
 import { Exports } from './views/Exports';
 
 const TABS: { id: View; label: string; key: string }[] = [
-  { id: 'dashboard', label: 'Image', key: '1' }, { id: 'upload', label: 'Add photos', key: '2' }, { id: 'classify', label: 'Label', key: '3' },
-  { id: 'terrain', label: 'Terrain map', key: '4' }, { id: 'view3d', label: 'Terrain 3D', key: '5' }, { id: 'planning', label: 'Plan', key: '6' }, { id: 'exports', label: 'Export', key: '7' },
+  { id: 'dashboard', label: 'Image', key: '1' }, { id: 'upload', label: 'Add photos', key: '2' },
+  { id: 'terrain', label: 'Terrain map', key: '3' }, { id: 'view3d', label: 'Terrain 3D', key: '4' }, { id: 'planning', label: 'Plan', key: '5' }, { id: 'exports', label: 'Export', key: '6' },
 ];
 
 const SHORTCUTS: [string, string][] = [
-  ['Alt + 1 … 7', 'Switch view (Image, Add photos, Label, Terrain map, Terrain 3D, Plan, Export)'], ['Ctrl/Cmd + Z', 'Undo last classification edit'], ['Ctrl/Cmd + Shift + Z or Ctrl + Y', 'Redo'],
-  ['S', 'Sample tool (inspect pixel)'], ['B', 'Brush'], ['P', 'Polygon'], ['R', 'Rectangle'], ['L', 'Lasso'], ['F', 'Flood fill'], ['M', 'Select similar colour'], ['E', 'Erase to Unknown'],
-  ['[ and ]', 'Smaller / larger brush'], ['0 … 9', 'Choose class by id'], ['Enter / Esc', 'Apply / cancel the current polygon or selection preview'], ['Backspace', 'Remove the last polygon vertex'],
-  ['Space + drag, or middle-drag', 'Pan'], ['Wheel', 'Zoom at cursor'], ['H', 'Toggle class overlay'], ['\\', 'Hold to peek at imagery without overlay'], ['?', 'This help'],
+  ['Alt + 1 … 6', 'Switch view (Image, Add photos, Terrain map, Terrain 3D, Plan, Export)'], ['Ctrl/Cmd + Z', 'Undo the last edit in the current tool'], ['Ctrl/Cmd + Shift + Z or Ctrl + Y', 'Redo'],
+  ['Drag', 'Orbit the 3D model'], ['Right-drag or Shift + drag', 'Pan'], ['Wheel', 'Zoom'], ['?', 'This help'],
 ];
 
 function Status() {
@@ -32,7 +29,7 @@ function Status() {
       <span className="flex-1 truncate text-slate-300">{st.mid}</span>
       <span className="flex items-center gap-3 whitespace-nowrap">
         {st.right && <span>{st.right}</span>}
-        {p && <span title="Horizontal CRS / linear units">{p.epsg ? `EPSG:${p.epsg}` : 'CRS not set'} · {p.horizontal_units}</span>}
+        {p && <span title="Horizontal CRS. Measurements are shown in feet.">{p.epsg ? `EPSG:${p.epsg}` : 'CRS not set'} · shown in feet</span>}
         <span className={saved.state === 'error' ? 'text-red-300' : saved.state === 'saving' ? 'text-amber-300' : 'text-emerald-300'}>
           {saved.state === 'saved' ? `✓ edits saved (v${saved.version})` : saved.state === 'saving' ? 'saving…' : `⚠ ${saved.msg ?? 'save failed'}`}
         </span>
@@ -92,8 +89,7 @@ export function App() {
       <div className="mt-1 text-[11px] text-slate-500">The sample is made-up data for trying the tools. It is not a real site.</div>
     </div>
   ) : !project ? <div className="m-auto text-slate-500">Loading project…</div> :
-    view === 'dashboard' ? <Dashboard /> : view === 'upload' ? <Upload /> : view === 'classify' ? <Classify /> :
-    view === 'terrain' ? <TerrainView mode="terrain" /> : view === 'planning' ? <TerrainView mode="planning" /> : view === 'view3d' ? <View3D /> : <Exports />;
+    view === 'dashboard' ? <Dashboard /> : view === 'upload' ? <Upload /> : view === 'terrain' ? <TerrainView mode="terrain" /> : view === 'planning' ? <TerrainView mode="planning" /> : view === 'view3d' ? <View3D /> : <Exports />;
 
   return (
     <div className="flex h-full flex-col">

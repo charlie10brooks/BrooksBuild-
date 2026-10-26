@@ -6,7 +6,7 @@ import { bump, selectProject, setApp, setLayer, setOpacity, toast, useApp, Layer
 import { errMsg, fmtBytes, usePoll } from './util';
 
 function NewProject({ onClose }: { onClose: () => void }) {
-  const [f, setF] = useState({ name: '', address: '', epsg: '', units: 'metre', system: 'metric' });
+  const [f, setF] = useState({ name: '', address: '', epsg: '', units: 'metre', system: 'imperial' });
   const [busy, setBusy] = useState(false);
   const submit = async () => {
     setBusy(true);
@@ -23,7 +23,6 @@ function NewProject({ onClose }: { onClose: () => void }) {
         <Field label="Horizontal CRS (EPSG)" hint="Leave blank to take it from the orthomosaic or image GPS. Example: 32616 = WGS84 / UTM 16N."><input className="input w-full" inputMode="numeric" value={f.epsg} onChange={(e) => setF({ ...f, epsg: e.target.value.replace(/\D/g, '') })} /></Field>
         <Field label="Linear units"><select className="input w-full" value={f.units} onChange={(e) => setF({ ...f, units: e.target.value })}><option value="metre">metre</option><option value="foot">international foot</option><option value="us_survey_foot">US survey foot</option></select></Field>
       </div>
-      <Field label="Display units"><select className="input w-full" value={f.system} onChange={(e) => setF({ ...f, system: e.target.value })}><option value="metric">Metric (m, ha)</option><option value="imperial">Imperial (ft, acres)</option></select></Field>
       <div className="mt-2 flex justify-end gap-2"><button className="btn" onClick={onClose}>Cancel</button><button className="btn btn-primary" disabled={!f.name.trim() || busy} onClick={submit}>Create</button></div>
     </Modal>
   );
@@ -70,8 +69,8 @@ function BatchesFlights() {
 }
 
 const LAYER_DEFS: { key: keyof LayerState; label: string; views: View[]; opacity?: string }[] = [
-  { key: 'ortho', label: 'Orthomosaic (imagery)', views: ['classify', 'terrain', 'planning'] },
-  { key: 'classes', label: 'Land-cover classes (visual)', views: ['classify', 'terrain', 'planning'], opacity: 'classes' },
+  { key: 'ortho', label: 'Orthomosaic (imagery)', views: ['terrain', 'planning'] },
+  { key: 'classes', label: 'Land-cover classes (visual)', views: ['terrain', 'planning'], opacity: 'classes' },
   { key: 'dsm', label: 'Observed surface (DSM)', views: ['terrain', 'planning'], opacity: 'dsm' },
   { key: 'dtm', label: 'Estimated bare earth (DTM)', views: ['terrain', 'planning'], opacity: 'dtm' },
   { key: 'ndsm', label: 'Object height (DSM − DTM)', views: ['terrain', 'planning'], opacity: 'ndsm' },
@@ -80,7 +79,7 @@ const LAYER_DEFS: { key: keyof LayerState; label: string; views: View[]; opacity
   { key: 'hillshade', label: 'Hillshade on elevation', views: ['terrain', 'planning'] },
   { key: 'steep', label: 'Steep slopes', views: ['terrain', 'planning'] },
   { key: 'drainage', label: 'Drainage paths', views: ['terrain', 'planning'] },
-  { key: 'boundary', label: 'Project boundary', views: ['classify', 'terrain', 'planning', 'dashboard'] },
+  { key: 'boundary', label: 'Project boundary', views: ['terrain', 'planning', 'dashboard'] },
   { key: 'features', label: 'Footprints, lines, notes', views: ['terrain', 'planning'] },
   { key: 'control', label: 'GCP / check points', views: ['terrain', 'planning', 'dashboard'] },
   { key: 'footprints', label: 'Image footprints', views: ['dashboard'] },

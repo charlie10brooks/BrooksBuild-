@@ -213,3 +213,9 @@ On the **Image** tab, **Process photos into a 3D model** runs everything in orde
 The automatic labels are guesses from colour and height, not a trained model. Unverified on real ODM output.
 
 The **Process** button always uses OpenDroneMap's **high** quality preset. If a run fails for lack of memory, a lighter (balanced) option appears on the card.
+
+## Feet, and where labels are edited
+
+All lengths, heights, areas and volumes are shown in feet, acres, square feet and cubic yards. This is display only: the project's data and the settings sent to the server stay in the project's own units (metres for the UTM projects here), and the **map coordinates** (easting / northing) are still shown as stored. Exports, CSV files and the PDF report are still written in metres; I did not convert those.
+
+The separate Label tab is gone. Labels are edited on the **Image** tab with **Check and fix labels**, under the 3D model. The old flat-map (orthomosaic) painting editor was removed with it.

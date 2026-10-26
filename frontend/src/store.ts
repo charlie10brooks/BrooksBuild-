@@ -2,7 +2,7 @@
 import { useSyncExternalStore } from 'react';
 import type { Project } from './api';
 
-export type View = 'dashboard' | 'upload' | 'classify' | 'terrain' | 'view3d' | 'planning' | 'exports';
+export type View = 'dashboard' | 'upload' | 'terrain' | 'view3d' | 'planning' | 'exports';
 export interface Toast { id: number; kind: 'info' | 'error' | 'ok'; text: string }
 export interface LayerState {
   ortho: boolean; classes: boolean; dsm: boolean; dtm: boolean; ndsm: boolean; confidence: boolean; evidence: boolean;
@@ -14,7 +14,7 @@ export interface AppState {
   ramp: string; zexag: number; status: Status; leftOpen: boolean; rightOpen: boolean; queue: any | null;
   saved: { state: 'saved' | 'saving' | 'error'; version: number; msg?: string };
   undoRedo: { canUndo: boolean; canRedo: boolean; undo: (() => void) | null; redo: (() => void) | null };
-  jobsTick: number; projectsTick: number; steepDeg: number; project: Project | null;
+  jobsTick: number; projectsTick: number; editLabels: boolean; steepDeg: number; project: Project | null;
 }
 
 const defaultLayers: LayerState = { ortho: true, classes: true, dsm: false, dtm: false, ndsm: false, confidence: false, evidence: false,
@@ -24,7 +24,7 @@ let state: AppState = {
   projectId: (() => { try { return localStorage.getItem('ts.project'); } catch { return null; } })(),
   view: 'dashboard', toasts: [], layers: defaultLayers, opacity: { classes: 0.6, dsm: 0.85, dtm: 0.85, ndsm: 0.85, confidence: 0.6, evidence: 0.6 },
   ramp: 'terrain', zexag: 1, status: { left: '', mid: '', right: '' }, leftOpen: true, rightOpen: true, queue: null,
-  saved: { state: 'saved', version: 0 }, undoRedo: { canUndo: false, canRedo: false, undo: null, redo: null }, jobsTick: 0, projectsTick: 0, steepDeg: 15, project: null,
+  saved: { state: 'saved', version: 0 }, undoRedo: { canUndo: false, canRedo: false, undo: null, redo: null }, jobsTick: 0, projectsTick: 0, editLabels: false, steepDeg: 15, project: null,
 };
 const subs = new Set<() => void>();
 export const getState = () => state;

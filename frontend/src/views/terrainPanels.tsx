@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Project, TerrainState, api, url } from '../api';
 import { bump, toast } from '../store';
 import { Check, Chip, Field, Kv, Notice, Section, SurfaceBadge, Table } from '../ui';
-import { areaLabel, elevLabel, errMsg, fmtNum, lengthLabel, toMetres, volumeLabel } from '../util';
+import { FT, areaLabel, elevLabel, errMsg, fmtNum, lengthLabel, toMetres, volumeLabel } from '../util';
 
 export const DISCLAIMER = 'Preliminary planning estimate. Not for final foundation design, permitting or construction staking without validation by a licensed surveyor / engineer.';
 export const CONF_COLOR: Record<string, string> = { high: '#31a354', moderate: '#fdae61', low: '#d63027', unknown: '#8a8a96' };
@@ -19,9 +19,11 @@ export function RunForm({ pid, ts, onStarted }: { pid: string; ts: TerrainState;
     method: 'local_plane', k: 16, power: 2, radius: 30, smooth: 0, hi: 2, mo: 6, lo: 15, clear: 1, useClass: true,
   });
   const set = (k: string, v: any) => setF((x) => ({ ...x, [k]: v }));
-  const num = (k: string, label: string, step = 0.1, hint?: string) => (
-    <Field label={label} hint={hint}><input className="input w-full" type="number" step={step} value={(f as any)[k]} onChange={(e) => set(k, Number(e.target.value))} /></Field>
-  );
+  // fields labelled "(m)" hold metres in the settings sent to the server but are shown and typed in feet
+  const num = (k: string, label: string, step = 0.1, hint?: string) => {
+    const ft = label.includes('(m)'), shown = ft ? Math.round((f as any)[k] * FT * 100) / 100 : (f as any)[k];
+    return (<Field label={ft ? label.replace('(m)', '(ft)') : label} hint={hint}><input className="input w-full" type="number" step={ft ? step * FT : step} value={shown} onChange={(e) => set(k, ft ? Number(e.target.value) / FT : Number(e.target.value))} /></Field>);
+  };
   const pdalEngine = f.engine.startsWith('pdal');
   const start = async () => {
     try {
@@ -91,16 +93,16 @@ export function SummaryPanel({ ts, p }: { ts: TerrainState; p: Project }) {
       {conf.weak_fraction > 0.2 && !ts.dense_canopy_advice && <Notice kind="warn"><b>{pct(conf.weak_fraction)} of the terrain is low-confidence.</b> Under dense canopy the ground is rarely visible to a camera. Consider a ground survey (total station / GNSS rover), or LiDAR if available, before relying on elevations here.</Notice>}
       {cv && <>
         <div className="mt-2 mb-1 text-[11px] font-semibold text-slate-500">Hold-out check against measured ground</div>
-        <Kv k="Overall RMSE" v={cv.overall_rmse_m != null ? `${fmtNum(cv.overall_rmse_m, 2)} m` : '-'} />
-        <Table dense head={['Distance to ground pts', 'n', 'RMSE (m)', 'Bias (m)']} rows={(cv.by_distance ?? []).filter((r: any) => r.n > 0).map((r: any) => [`${r.dist_from_m}–${r.dist_to_m} m`, r.n, fmtNum(r.rmse_m, 2), fmtNum(r.bias_m, 2)])} />
+        <Kv k="Overall RMSE" v={cv.overall_rmse_m != null ? `${fmtNum(cv.overall_rmse_m * FT, 2)} ft` : '-'} />
+        <Table dense head={['Distance to ground pts', 'n', 'RMSE (ft)', 'Bias (ft)']} rows={(cv.by_distance ?? []).filter((r: any) => r.n > 0).map((r: any) => [`${fmtNum(r.dist_from_m * FT, 1)}–${fmtNum(r.dist_to_m * FT, 1)} ft`, r.n, fmtNum(r.rmse_m * FT, 2), fmtNum(r.bias_m * FT, 2)])} />
         <div className="mt-1 text-[10.5px] text-slate-500">{cv.note}</div>
       </>}
       {s.check_points && s.check_points.length > 0 && <>
         <div className="mt-2 mb-1 text-[11px] font-semibold text-slate-500">Surveyed check points</div>
-        <Table dense head={['Label', 'dz (m)']} rows={s.check_points.map((c: any) => [c.label, fmtNum(c.dz, 2)])} />
+        <Table dense head={['Label', 'dz (ft)']} rows={s.check_points.map((c: any) => [c.label, fmtNum(c.dz * FT, 2)])} />
       </>}
       {(s.warnings ?? []).map((w: string, i: number) => <Notice key={i} kind="estimate">{w}</Notice>)}
-      <div className="mt-1 text-[10.5px] text-slate-500">Ground filter: {s.ground_engine}; DSM from {s.dsm_source}; {s.cells?.toLocaleString()} cells at {s.resolution_m} m.</div>
+      <div className="mt-1 text-[10.5px] text-slate-500">Ground filter: {s.ground_engine}; DSM from {s.dsm_source}; {s.cells?.toLocaleString()} cells at {fmtNum(s.resolution_m * FT, 2)} ft.</div>
     </div>
   );
 }

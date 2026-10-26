@@ -6,7 +6,7 @@ import { MaskLayer, OrthoLayer } from '../tiles';
 import { LAYER_KIND, LAYER_NAME, RAMP_NAMES, rampCss } from '../ramps';
 import { bump, setApp, setLayer, setOpacity, setStatus, toast, useApp, useProject } from '../store';
 import { Viewport } from '../viewport';
-import { areaLabel, boundaryRings, elevLabel, errMsg, fmtNum, lengthLabel, pathLength, polygonArea, toMetres, usePoll } from '../util';
+import { FT, areaLabel, boundaryRings, elevLabel, errMsg, fmtNum, lengthLabel, pathLength, polygonArea, toMetres, usePoll } from '../util';
 import { CONF_COLOR, CutFillPanel, DISCLAIMER, FootprintPanel, Profile, ProfileChart, RunForm, SourcesPanel, SummaryPanel, profileCsv } from './terrainPanels';
 
 type Tool = 'hand' | 'inspect' | 'distance' | 'area' | 'profile' | 'footprint' | 'boundary';
@@ -374,7 +374,7 @@ function Workspace({ mode, ts, p, reload }: { mode: 'terrain' | 'planning'; ts: 
             <input type="range" className="w-full" min={1} max={8} step={0.5} value={zexag} onChange={(e) => setApp({ zexag: Number(e.target.value) })} /></div>}
           <div className="grid grid-cols-2 gap-x-2">
             <Field label={`Steep slope > ${steepDeg}°`}><input type="range" className="w-full" min={5} max={45} value={steepDeg} onChange={(e) => setApp({ steepDeg: Number(e.target.value) })} /></Field>
-            <Field label="Min drainage area (m²)"><input className="input w-full" type="number" value={minArea} onChange={(e) => setMinArea(Math.max(10, Number(e.target.value)))} /></Field>
+            <Field label="Min drainage area (ft²)"><input className="input w-full" type="number" value={Math.round(minArea * FT * FT)} onChange={(e) => setMinArea(Math.max(10, Number(e.target.value) / (FT * FT)))} /></Field>
           </div>
           {steep.data && layers.steep && <div className="text-[11px] text-slate-600">{fmtNum(steep.data.fraction * 100, 1)}% of the site ({areaLabel(p, steep.data.area_m2)}) is steeper than {steepDeg}° on the estimated surface.</div>}
           {drain.data && layers.drainage && <div className="text-[11px] text-slate-600">{drain.data.note}</div>}

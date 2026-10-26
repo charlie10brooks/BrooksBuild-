@@ -7,7 +7,8 @@ import { bump, selectProject, setApp, toast, useApp, useProject } from '../store
 import { Viewport } from '../viewport';
 import { MeshView } from './MeshView';
 import { Pipeline } from './Pipeline';
-import { areaLabel, boundaryRings, errMsg, fmtBytes, fmtNum, fmtTime, lonlatToProject, toMetres, usePoll } from '../util';
+import { MeshClassify } from './MeshClassify';
+import { FT, areaLabel, boundaryRings, errMsg, fmtBytes, fmtNum, fmtTime, lonlatToProject, toMetres, usePoll } from '../util';
 
 function useMapper(epsg: number | null, fp: any) {
   return useMemo(() => {
@@ -100,7 +101,6 @@ function CrsPanel() {
         <Field label="Horizontal units"><select className="input w-full" value={units} disabled={locked} onChange={(e) => setUnits(e.target.value)}><option value="metre">metre</option><option value="foot">foot</option><option value="us_survey_foot">US survey foot</option></select></Field>
         <Field label="Vertical units"><select className="input w-full" value={vunits} onChange={(e) => setVunits(e.target.value)}><option value="metre">metre</option><option value="foot">foot</option><option value="us_survey_foot">US survey foot</option></select></Field>
       </div>
-      <Field label="Display units"><select className="input w-full" value={sys} onChange={(e) => setSys(e.target.value as any)}><option value="metric">Metric (m, ha)</option><option value="imperial">Imperial (ft, acres)</option></select></Field>
       {!p.epsg && p.suggested_crs && <Notice kind="info">Suggested from image GPS: <b>EPSG:{p.suggested_crs.epsg}</b> ({p.suggested_crs.basis}). <button className="btn ml-1 !py-0" onClick={() => setEpsg(String(p.suggested_crs!.epsg))}>Use</button></Notice>}
       {!p.vertical_epsg && <div className="mb-1 text-[11px] text-slate-500">Vertical datum is not specified. Elevations are only comparable to external data if the datum matches.</div>}
       <button className="btn btn-primary" onClick={save}>Save</button>
@@ -166,6 +166,7 @@ function ModelPanel() {
   const [labels, setLabels] = useState<Uint8Array | null>(null);
   const [show, setShow] = useState(true);
   const [fullH, setFullH] = useState(false);
+  const edit = useApp((x) => x.editLabels);
   useEffect(() => {
     let dead = false;
     api.meshLabels(p.id).then(async (i) => { if (dead) return; setInfo(i); setLabels(i.available && i.has_labels ? await api.meshLabelsData(p.id) : null); }).catch(() => {});
@@ -173,16 +174,16 @@ function ModelPanel() {
   }, [p.id, jt]);
   const classes = info?.classes ?? [];
   return (
-    <div className="col-span-full rounded border border-line bg-white">
+    <div id="model-panel" className="col-span-full rounded border border-line bg-white">
       <Section title="Your 3D model" badge={info?.available ? <Chip kind="observed">OBSERVED</Chip> : undefined}>
         <div className="mb-1 flex flex-wrap items-center gap-3 text-[12px]">
           <span className="text-slate-600">The 3D model built from your photos. Drag to orbit, right-drag to pan, scroll to zoom.</span>
           {info?.has_labels && <label className="flex cursor-pointer items-center gap-1.5"><input type="checkbox" checked={show} onChange={(e) => setShow(e.target.checked)} />Show land-cover labels</label>}
           <button className="btn !py-0" onClick={() => setFullH(!fullH)}>{fullH ? 'Smaller' : 'Taller'}</button>
-          {info?.available && <button className="btn !py-0" onClick={() => setApp({ view: 'classify' })}>Check and fix labels</button>}
+          {info?.available && <button className={`btn !py-0 ${edit ? 'btn-on' : ''}`} onClick={() => setApp({ editLabels: !edit })}>{edit ? 'Done fixing labels' : 'Check and fix labels'}</button>}
         </div>
-        <div className="relative flex overflow-hidden rounded border border-line bg-slate-200" style={{ height: fullH ? 760 : 480 }}>
-          <MeshView pid={p.id} jobsTick={jt} cls={{ classes, show: show && !!info?.has_labels, opacity: 0.6, labels, selection: null, tool: 'orbit' }} />
+        <div className="relative flex overflow-hidden rounded border border-line bg-slate-200" style={{ height: edit ? 700 : fullH ? 760 : 480 }}>
+          {edit && info?.available ? <MeshClassify pid={p.id} /> : <MeshView pid={p.id} jobsTick={jt} cls={{ classes, show: show && !!info?.has_labels, opacity: 0.6, labels, selection: null, tool: 'orbit' }} />}
         </div>
         {info?.has_labels && show && <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11.5px]">{classes.filter((c: any) => c.id !== 0 && (info.counts?.[String(c.id)] ?? 0) > 0).map((c: any) => <span key={c.id} className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-sm border border-slate-400" style={{ background: c.color }} />{c.name}</span>)}</div>}
       </Section>
@@ -224,7 +225,7 @@ export function Dashboard() {
               {[['Images', p.image_count], ['With GPS', p.image_count - p.images_without_gps], ['Flights', flights.data?.groups?.filter((g: any) => g.group > 0).length ?? '-'], ['Poor overlap', fs?.poor_overlap ?? '-']].map(([k, v]) => <div key={k as string} className="rounded border border-line bg-panel py-1"><div className="text-[16px] font-semibold">{v as any}</div><div className="text-[10.5px] text-slate-500">{k}</div></div>)}
             </div>
             {fs && <div className="mt-2 text-[11.5px] text-slate-600">{fs.notes ? (Array.isArray(fs.notes) ? fs.notes.join(' ') : fs.notes) : ''}{fs.mean_gsd_cm ? ` Mean GSD ≈ ${fmtNum(fs.mean_gsd_cm, 1)} cm/px.` : ''}{fs.estimated_forward_overlap ? ` Est. forward overlap ${fmtNum(fs.estimated_forward_overlap * 100, 0)}%.` : ''}</div>}
-            {(flights.data?.groups ?? []).length > 0 && <div className="mt-2"><Table head={['Flight', 'Images', 'No GPS', 'Poor overlap', 'Start', 'Alt (m)']} dense rows={flights.data.groups.map((g: any) => [g.label, g.images, g.images_without_gps, g.poor_overlap, fmtTime(g.start), fmtNum(g.mean_relative_altitude_m, 0)])} /></div>}
+            {(flights.data?.groups ?? []).length > 0 && <div className="mt-2"><Table head={['Flight', 'Images', 'No GPS', 'Poor overlap', 'Start', 'Alt (ft)']} dense rows={flights.data.groups.map((g: any) => [g.label, g.images, g.images_without_gps, g.poor_overlap, fmtTime(g.start), fmtNum(g.mean_relative_altitude_m * FT, 0)])} /></div>}
           </Section></div>
           <div className="rounded border border-line bg-white"><ControlPanel /></div>
           <div className="rounded border border-line bg-white"><Section title="Jobs, controls and logs"><JobList limit={25} /></Section></div>

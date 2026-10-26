@@ -55,7 +55,7 @@ export function Pipeline({ p }: { p: Project }) {
   const relabel = async () => { try { await api.meshLabelsAuto(p.id); bump('jobsTick'); toast('info', 'Labelling the model'); } catch (e) { toast('error', errMsg(e)); } };
   const next = active ? 'Working on it. You can leave this page; the steps below update on their own.'
     : !modelReady ? (odm?.status === 'failed' ? 'The last run failed. Read the message below, fix it and run again.' : 'Ready to process your photos.')
-    : !labelled ? 'Your 3D model is ready. Label it automatically, or open Label to do it by hand.' : 'Done. Look around the model below, then check and fix the labels.';
+    : !labelled ? 'Your 3D model is ready. Label it automatically, or label it by hand with Check and fix labels.' : 'Done. Look around the model below, then check and fix the labels.';
   return (
     <div className={`col-span-full rounded border bg-white ${!modelReady || active ? 'border-accent ring-2 ring-sky-100' : 'border-line'}`}>
       <Section title="Photos to 3D model" badge={modelReady && !active ? <Chip kind="ok">ready</Chip> : active ? <Chip kind="running">working</Chip> : undefined}>
@@ -84,13 +84,13 @@ export function Pipeline({ p }: { p: Project }) {
           <div className="mt-1 text-[11px] text-slate-500">This builds the most detailed model, so it can take from minutes to hours and needs plenty of memory. If it fails for lack of memory, a lighter setting will appear here.</div>
         </>}
         {!active && modelReady && !again && <div className="flex flex-wrap gap-2">
-          <button className="btn btn-primary" onClick={() => setApp({ view: 'classify' })}>Check and fix labels</button>
+          <button className="btn btn-primary" onClick={() => { setApp({ editLabels: true }); setTimeout(() => document.getElementById('model-panel')?.scrollIntoView({ behavior: 'smooth' }), 50); }}>Check and fix labels</button>
           <button className="btn" onClick={relabel}>{labelled ? 'Re-run automatic labelling' : 'Label the model automatically'}</button>
           <button className="btn" onClick={() => setApp({ view: 'view3d' })}>Terrain 3D</button>
           <button className="btn" onClick={() => setAgain(true)} title="Run the photogrammetry again, for example with different quality">Process photos again…</button>
         </div>}
         {note && <div className="mt-1"><Notice kind="estimate">{note}</Notice></div>}
-        {labelled && <div className="mt-1 text-[11px] text-slate-500">Labels are automatic guesses from colour and height. Check them in <b>Label</b> before relying on them.</div>}
+        {labelled && <div className="mt-1 text-[11px] text-slate-500">Labels are automatic guesses from colour and height. Use <b>Check and fix labels</b> to review them before relying on them.</div>}
       </Section>
     </div>
   );

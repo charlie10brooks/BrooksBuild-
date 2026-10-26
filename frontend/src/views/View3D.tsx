@@ -6,7 +6,7 @@ import { MaskLayer, OrthoLayer } from '../tiles';
 import { Viewport } from '../viewport';
 import { RAMP_NAMES, rampCss } from '../ramps';
 import { bump, setApp, toast, useApp, useProject } from '../store';
-import { boundaryRings, elevLabel, errMsg, fmtNum, lengthLabel, toMetres, usePoll } from '../util';
+import { FT, boundaryRings, elevLabel, errMsg, fmtNum, lengthLabel, toMetres, usePoll } from '../util';
 import { DISCLAIMER, downloadBlob } from './terrainPanels';
 import { MeshView } from './MeshView';
 
@@ -511,7 +511,7 @@ function Scene({ p, ts, cm, reloadCloud }: { p: Project; ts: any; cm: any; reloa
           {colorBy === 'elevation' && <Field label="Ramp"><select className="input w-full" value={ramp} onChange={(e) => setApp({ ramp: e.target.value })}>{RAMP_NAMES.map((r) => <option key={r}>{r}</option>)}</select></Field>}
           <Check label="Shading" checked={shade} onChange={setShade} />
           <Field label="Mesh detail"><select className="input w-full" value={detail} onChange={(e) => setDetail(Number(e.target.value))}><option value={200}>Coarse (200)</option><option value={400}>Medium (400)</option><option value={800}>Fine (800)</option><option value={1200}>Very fine (1200)</option></select></Field>
-          {ref && <div className="text-[10.5px] text-slate-500">{ref.w}×{ref.h} grid, {fmtNum(ref.res * mh, 2)} m cells. {hfs.dsm && `DSM has ${fmtNum((hfs.dsm.data.reduce((a, v) => a + (isFinite(v) ? 1 : 0), 0) / hfs.dsm.data.length) * 100, 0)}% valid cells; gaps are left empty, not filled.`}</div>}
+          {ref && <div className="text-[10.5px] text-slate-500">{ref.w}×{ref.h} grid, {fmtNum(ref.res * mh * FT, 2)} ft cells. {hfs.dsm && `DSM has ${fmtNum((hfs.dsm.data.reduce((a, v) => a + (isFinite(v) ? 1 : 0), 0) / hfs.dsm.data.length) * 100, 0)}% valid cells; gaps are left empty, not filled.`}</div>}
         </Section>
 
         <Section key={`pc-${show.points}`} title="Point cloud" open={show.points}>
@@ -522,7 +522,7 @@ function Scene({ p, ts, cm, reloadCloud }: { p: Project; ts: any; cm: any; reloa
           {cm?.available && <>
             <Notice kind="info">{cm.note} {cm.subsampled ? `Showing ${cm.points.toLocaleString()} of ${cm.total_points.toLocaleString()} points.` : `${cm.points.toLocaleString()} points.`}</Notice>
             <Field label="Colour points by"><select className="input w-full" value={pointMode} onChange={(e) => setPointMode(Number(e.target.value) as 0 | 1 | 2)}><option value={0} disabled={!cm.has_rgb}>Imagery colour (RGB)</option><option value={1}>Point class</option><option value={2}>Elevation</option></select></Field>
-            <Slider label="Point size (m)" value={pointSize} min={0.05} max={1.5} step={0.05} onChange={setPointSize} />
+            <Slider label="Point size" value={pointSize} min={0.05} max={1.5} step={0.05} onChange={setPointSize} fmt={(v) => `${(v * FT).toFixed(1)} ft`} />
             <div className="text-[11px] font-semibold text-slate-500">Classes</div>
             {Object.entries(clsCounts).map(([k, n]) => { const i = Number(k); return (
               <label key={k} className="flex cursor-pointer items-center gap-1.5 py-0.5 text-[12px]"><input type="checkbox" checked={clsVis[i] !== false} onChange={(e) => setClsVis(clsVis.map((v, j) => (j === i ? e.target.checked : v)))} />
@@ -563,9 +563,9 @@ function Scene({ p, ts, cm, reloadCloud }: { p: Project; ts: any; cm: any; reloa
         <Section title="3D measurement" actions={mpts.length ? <button className="btn !py-0" onClick={() => setMpts([])}>Clear</button> : undefined}>
           {!measure && mpts.length === 0 && <div className="text-[12px] text-slate-500">Turn on <b>Measure</b> in the toolbar, then click points on the surface. Points land on the {split ? 'surface under the pane you click' : 'visible surface'}; each point records whether it sits on the observed or estimated surface.</div>}
           {mpts.map((q, i) => <div key={i} className="mb-0.5 flex items-center justify-between text-[11.5px]"><span><b>{i + 1}</b> <Chip kind={q.surf}>{q.surf === 'observed' ? 'OBS' : 'EST'}</Chip></span>
-            <span className="font-mono">{fmtNum(q.x, 1)}, {fmtNum(q.y, 1)}, {fmtNum(q.z, 2)}</span></div>)}
+            <span className="font-mono">{fmtNum(q.x, 1)}, {fmtNum(q.y, 1)} · {elevLabel(p, q.z)}</span></div>)}
           {calc.segs.length > 0 && <div className="mt-1 rounded bg-slate-50 p-1">
-            {calc.segs.map((s, i) => <div key={i} className="flex justify-between text-[11.5px]"><span>{i + 1}→{i + 2}</span><span className="font-mono">{lengthLabel(p, s.d3)} · Δz {s.dz >= 0 ? '+' : ''}{fmtNum(s.dz / mv, 2)} · {fmtNum(s.slope, 1)}%</span></div>)}
+            {calc.segs.map((s, i) => <div key={i} className="flex justify-between text-[11.5px]"><span>{i + 1}→{i + 2}</span><span className="font-mono">{lengthLabel(p, s.d3)} · Δz {s.dz >= 0 ? '+' : '−'}{lengthLabel(p, Math.abs(s.dz))} · {fmtNum(s.slope, 1)}%</span></div>)}
             <Kv k="Horizontal length" v={lengthLabel(p, calc.hd)} /><Kv k="Slope length (3D)" v={lengthLabel(p, calc.d3)} />
             {new Set(mpts.map((q) => q.surf)).size > 1 && <Notice kind="estimate">These points mix observed and estimated surfaces; the elevation difference between them is not a ground slope.</Notice>}
             {mpts.some((q) => q.surf === 'estimated') && <div className="text-[10.5px] text-amber-800">Estimated-surface values inherit the DTM uncertainty (see Terrain 2D summary).</div>}</div>}

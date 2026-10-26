@@ -15,6 +15,7 @@ export const errMsg = (e: unknown) => (e instanceof ApiError ? e.message : e ins
 
 // ---------------------------------------------------------------- units
 const TO_M: Record<string, number> = { metre: 1, foot: 0.3048, us_survey_foot: 1200 / 3937, degree: NaN };
+export const FT = 3.280839895;                       // feet per metre
 export const toMetres = (units: string | null | undefined) => TO_M[units || 'metre'] ?? 1;
 export function lengthLabel(p: Pick<Project, 'unit_system'> | null, m: number): string {
   if (!isFinite(m)) return '-';
@@ -32,8 +33,8 @@ export function volumeLabel(p: Pick<Project, 'unit_system'> | null, m3: number):
 }
 export function elevLabel(p: Pick<Project, 'vertical_units'> | null, v: number | null | undefined, d = 2): string {
   if (v == null || !isFinite(v)) return '-';
-  const u = p?.vertical_units === 'metre' ? 'm' : p?.vertical_units === 'foot' ? 'ft' : p?.vertical_units === 'us_survey_foot' ? 'ft (US)' : '';
-  return `${v.toFixed(d)} ${u}`.trim();
+  const ft = (v * toMetres(p?.vertical_units)) * FT;         // always shown in feet
+  return `${ft.toFixed(d)} ft`;
 }
 
 // ---------------------------------------------------------------- WGS84 <-> projected (UTM / web mercator), Krueger series (matches backend core/crs.py)

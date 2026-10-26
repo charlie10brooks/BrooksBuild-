@@ -4,6 +4,8 @@ export class ApiError extends Error {
   constructor(status: number, code: string, message: string, details?: any) { super(message); this.status = status; this.code = code; this.details = details; }
 }
 const BASE: string = (window as any).TERRASCOPE_API ?? '/api';
+// BrooksBuild shows lengths, areas and volumes in feet, acres and cubic yards everywhere, whatever the stored project setting is.
+const imperial = (p: Project): Project => ({ ...p, unit_system: 'imperial' });
 export const url = (p: string) => BASE + p;
 
 export async function req<T = any>(method: string, path: string, body?: any, init: RequestInit = {}): Promise<T> {
@@ -68,10 +70,10 @@ export interface TerrainState {
 export const api = {
   system: () => get('/system'),
   storage: () => get('/storage'),
-  projects: () => get<Project[]>('/projects'),
-  project: (id: string) => get<Project>(`/projects/${id}`),
-  createProject: (b: any) => post<Project>('/projects', b),
-  patchProject: (id: string, b: any) => patch<Project>(`/projects/${id}`, b),
+  projects: () => get<Project[]>('/projects').then((l) => l.map(imperial)),
+  project: (id: string) => get<Project>(`/projects/${id}`).then(imperial),
+  createProject: (b: any) => post<Project>('/projects', { ...b, unit_system: 'imperial' }).then(imperial),
+  patchProject: (id: string, b: any) => patch<Project>(`/projects/${id}`, { ...b, ...(b.unit_system ? { unit_system: 'imperial' } : {}) }).then(imperial),
   deleteProject: (id: string, name: string) => del(`/projects/${id}?confirm=${encodeURIComponent(name)}`),
   sample: () => post<Project>('/dev/sample-project'),
   flights: (id: string) => get(`/projects/${id}/flights`),
