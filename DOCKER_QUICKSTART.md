@@ -54,4 +54,4 @@ Go to **http://localhost:8000** in your browser. With dev mode on, click "Add sy
 * **Build fails while installing packages:** copy the last 30 lines and send them to me.
 * **Photogrammetry job fails immediately:** open the job's Logs. The usual causes are Docker not reachable from the worker (the compose file mounts `/var/run/docker.sock`; on Docker Desktop this works inside WSL/Mac), the data path not being absolute, or too little memory for OpenDroneMap (give Docker Desktop more RAM in its settings).
 * **Port 8000 already in use:** change `"8000:8000"` in `docker-compose.yml` to e.g. `"8080:8000"` and browse to http://localhost:8080.
-* **Security:** the worker has access to the Docker socket, which is root-equivalent on your machine, and the app has no login. Run it only on a computer and network you trust.
+* **Security:** the app has no login (OpenDroneMap now runs inside the app's own container, so the Docker socket is no longer mounted). Run it only on a computer and network you trust.

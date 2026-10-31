@@ -40,7 +40,6 @@ jobs:
           echo "app answers"; docker logs ts
 
       - name: Real OpenDroneMap run inside the image (small public photo set)
-        continue-on-error: true
         run: |
           set -o pipefail
           fail() { echo "::error title=real ODM run failed::$(tail -n 40 odm.log | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')"; exit 1; }

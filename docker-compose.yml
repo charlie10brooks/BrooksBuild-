@@ -20,4 +20,4 @@ services:
     command: ["python", "-m", "app.workers.runner"]
     volumes:
       - ${TERRASCOPE_DATA_DIR}:${TERRASCOPE_DATA_DIR}
-      - /var/run/docker.sock:/var/run/docker.sock             # lets the worker run OpenDroneMap. This is root-equivalent on the host.
+      # No Docker socket: OpenDroneMap is built into this image and runs inside the worker (set TERRASCOPE_ODM_MODE=docker to use a sibling container instead).

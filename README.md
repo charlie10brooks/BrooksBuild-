@@ -26,7 +26,7 @@ Read this first. It is the honest status of the build.
 | Web UI (React/TS): dashboard, upload, classification editor, Terrain 2D, Planning, 3D, Exports | **Driven in real Chromium** against the synthetic sample project (screenshots, real mouse/keyboard input, server-side pixel counts checked). No automated browser tests are committed. |
 | Photogrammetry (OpenDroneMap) | **Never run.** The sandbox had the Docker CLI but no daemon. The orchestration is tested against a *stub* `docker`; real ODM output has not been seen. ODM options are verified against `--help` before each run, so a renamed option fails fast with a message. |
 | PDAL ground filters (SMRF / PMF), LAZ | **Never run.** PDAL was not installed. The pipelines are built and unit-tested up to the subprocess call. The built-in progressive-morphological filter (`builtin_pmf`) *was* exercised end-to-end and is the only engine that has produced real output. |
-| Docker image / docker-compose | **Image build verified by GitHub Actions**: it builds, the backend tests pass inside it, and the app answers on `/api/health` and serves the UI. **Not verified:** `docker compose up` on your machine, and a real OpenDroneMap run (needs the Docker socket and real photos). |
+| Docker image / docker-compose | **Image build verified by GitHub Actions**: it builds, the backend tests pass inside it, and the app answers on `/api/health` and serves the UI. **Not verified:** `docker compose up` on your machine, and photo quality on your own flights. A real OpenDroneMap run on 19 public sample photos (OBJ produced and parsed by BrooksBuild's own reader) is a CI gate. |
 | PostgreSQL/PostGIS | **Not used.** Persistence is SQLite (WAL). `deploy/postgres_schema.sql` is an unexecuted translation of the schema. |
 | Celery / Redis | **Not used.** The job queue is a persistent table in the database with its own worker process (heartbeats, stale-job recovery, retries, cancellation). |
 | S3 storage | **Not implemented.** There is a `Storage` interface and a local implementation; `S3Storage` is a documented placeholder. |
@@ -219,3 +219,18 @@ The **Process** button always uses OpenDroneMap's **high** quality preset. If a 
 All lengths, heights, areas and volumes are shown in feet, acres, square feet and cubic yards. This is display only: the project's data and the settings sent to the server stay in the project's own units (metres for the UTM projects here), and the **map coordinates** (easting / northing) are still shown as stored. Exports, CSV files and the PDF report are still written in metres; I did not convert those.
 
 The separate Label tab is gone. Labels are edited on the **Image** tab with **Check and fix labels**, under the 3D model. The old flat-map (orthomosaic) painting editor was removed with it.
+
+
+## Processing happens inside BrooksBuild (built-in OpenDroneMap)
+
+The app image is built on the official OpenDroneMap image (ODM stays unmodified at `/code`; AGPL-3.0, https://github.com/OpenDroneMap/ODM).
+The worker runs it directly (`python3 /code/run.py --project-path <project> odm ...`) with ODM's own environment variables, so there is no
+second container and no Docker socket. `TERRASCOPE_ODM_MODE=docker` switches back to a sibling container; `TERRASCOPE_ODM_IMAGE` /
+the `ODM_IMAGE` build argument pick the ODM version (default `opendronemap/odm:3.6.2`).
+
+* **Verified by CI:** the image builds; the tests pass in it; and a real ODM run on 19 photos from a public sample set
+  (pierotofy/drone_dataset_brighton_beach) produces `odm_textured_model_geo.obj` and `coords.txt`, and BrooksBuild's OBJ reader parses it.
+  The CI run uses lowest-quality settings, so it proves the pipeline works, not the quality.
+* **Not verified:** speed and memory on your Codespace with 50-100 photos. ODM needs RAM roughly proportional to photo count; if the job is
+  killed, use a Codespace with more memory (16 GB or more is a sensible starting point for 50-100 photos) or fewer photos.
+* The first build downloads the ODM base image (a few hundred MB compressed), so it takes longer than before.
