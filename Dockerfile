@@ -1,5 +1,6 @@
 # Verified by GitHub Actions (.github/workflows/build.yml): the image builds, the backend tests pass inside it, and the app answers
 # on /api/health and serves the web UI. The built-in ODM start-up check runs at build time; a real photo run is the 'odm-real' CI job.
+ARG ODM_IMAGE=opendronemap/odm:latest
 FROM node:20-bookworm-slim AS web
 WORKDIR /web
 COPY frontend/package.json frontend/package-lock.json* ./
@@ -9,7 +10,6 @@ RUN node build.mjs
 
 # OpenDroneMap (AGPL-3.0, https://github.com/OpenDroneMap/ODM) is taken from its official image, not copied into this repository.
 # It is self-contained (its own pixi/conda environment + SuperBuild), so it is copied to the same path (/code) and run natively.
-ARG ODM_IMAGE=opendronemap/odm:latest
 FROM ${ODM_IMAGE} AS odm
 
 FROM python:3.12-slim-trixie
