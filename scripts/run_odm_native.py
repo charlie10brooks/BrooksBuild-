@@ -12,6 +12,6 @@ run = odm.native_runner(app)
 if not run:
     sys.exit("native ODM not found (TERRASCOPE_ODM_HOME=%s)" % app.settings.odm_home)
 parent, name, *opts = sys.argv[1:]
-cmd = [*run, "--project-path", parent, *opts, name]
+cmd = [*run, "--project-path", parent, name, *opts]
 print("$", " ".join(cmd), flush=True)
 sys.exit(subprocess.call(cmd, env=odm.native_env(app)))

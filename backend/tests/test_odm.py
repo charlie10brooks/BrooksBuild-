@@ -128,8 +128,8 @@ stub = {str(self.bin / 'docker')!r}
 if "--help" in a:
     sys.exit(subprocess.call([stub, "--help"]))
 i = a.index("--project-path")
-work = a[i + 1] + "/" + a[-1]
-rest = [x for k, x in enumerate(a[:-1]) if k not in (i, i + 1)]
+work = a[i + 1] + "/" + a[i + 2]
+rest = [x for k, x in enumerate(a) if k not in (i, i + 1, i + 2)] + ["code"]
 sys.exit(subprocess.call([stub, "run", "--rm", "-v", work + ":/datasets/code", "x", *rest]))
 """)
         entry.chmod(entry.stat().st_mode | stat.S_IEXEC)

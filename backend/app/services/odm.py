@@ -270,7 +270,7 @@ def run_odm(app: AppContext, ctx: JobContext) -> dict:
     ctx.log(f"ODM inputs: {info}; options: {' '.join(opts)}")
     name = f"terrascope-odm-{ctx.id[:12]}"
     if native:
-        cmd = [*native, "--project-path", str(work.parent), *opts, *app.settings.odm_extra_args.split(), work.name]
+        cmd = [*native, "--project-path", str(work.parent), work.name, *opts, *app.settings.odm_extra_args.split()]
     else:
         cmd = [docker, "run", "--rm", "--name", name, "-v", f"{work}:/datasets/code", app.settings.odm_image,
                "--project-path", "/datasets", *opts, *app.settings.odm_extra_args.split(), "code"]
