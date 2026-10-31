@@ -1,6 +1,11 @@
-# Verified by GitHub Actions (.github/workflows/build.yml): the image builds, the backend tests pass inside it, and the app answers
-# on /api/health and serves the web UI. The built-in ODM start-up check runs at build time; a real photo run is the 'odm-real' CI job.
-ARG ODM_IMAGE=opendronemap/odm:latest
+# Verified by GitHub Actions (.github/workflows/build.yml): the image builds, the backend tests pass inside it, the app answers on
+# /api/health and serves the web UI, and a real OpenDroneMap run on a small public photo set is attempted (see the 'real ODM' step).
+#
+# This image is built ON TOP OF the official OpenDroneMap image (AGPL-3.0, https://github.com/OpenDroneMap/ODM): ODM itself stays
+# at /code, unmodified, and BrooksBuild runs it natively (no second container, no Docker socket). BrooksBuild's own Python
+# dependencies live in a separate virtual environment (/opt/app) so they never mix with ODM's.
+ARG ODM_IMAGE=opendronemap/odm:3.6.2
+
 FROM node:20-bookworm-slim AS web
 WORKDIR /web
 COPY frontend/package.json frontend/package-lock.json* ./
@@ -8,28 +13,22 @@ RUN npm install --no-audit --no-fund
 COPY frontend/ ./
 RUN node build.mjs
 
-# OpenDroneMap (AGPL-3.0, https://github.com/OpenDroneMap/ODM) is taken from its official image, not copied into this repository.
-# It is self-contained (its own pixi/conda environment + SuperBuild), so it is copied to the same path (/code) and run natively.
-FROM ${ODM_IMAGE} AS odm
-
-FROM python:3.12-slim-trixie
-ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
-# docker CLI: the worker launches OpenDroneMap as a sibling container via the host socket.
-# PDAL (ground filtering SMRF/PMF + LAZ) is installed when the distribution packages it; if not, the image still builds and the app
-# reports "PDAL not found" (the explicit built-in filter still works). Debian bookworm has no pdal package; trixie does.
-RUN apt-get update && apt-get install -y --no-install-recommends docker.io libgl1 libglib2.0-0 \
+FROM ${ODM_IMAGE}
+ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 DEBIAN_FRONTEND=noninteractive
+# PDAL (ground filtering SMRF/PMF + LAZ) from Ubuntu; if unavailable the image still builds and the app reports "PDAL not found".
+RUN apt-get update && apt-get install -y --no-install-recommends python3-venv python3-pip libgl1 libglib2.0-0 curl ca-certificates \
     && (apt-get install -y --no-install-recommends pdal || echo "WARNING: pdal package not available; building without PDAL") \
-    && rm -rf /var/lib/apt/lists/* \
-    && (which pdal && pdal --version | head -1 || echo "PDAL: not installed")
-COPY --from=odm /code /code
-# Fails the build if the copied ODM cannot start on this base image (missing libraries, wrong paths).
-RUN cd /code && bash scripts/docker-entrypoint.sh python3 scripts/smoke.py && bash scripts/docker-entrypoint.sh --help | head -3
-ENV TERRASCOPE_ODM_HOME=/code
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY backend/requirements.txt backend/requirements.txt
-RUN pip install -r backend/requirements.txt
+RUN python3 -m venv /opt/app && /opt/app/bin/pip install -r backend/requirements.txt
 COPY backend/ backend/
 COPY --from=web /web/dist frontend/dist
+# The ODM image sets PYTHONPATH/LD_LIBRARY_PATH for ODM's own libraries; this app must not inherit them (BrooksBuild passes them to ODM only).
+ENV TERRASCOPE_ODM_HOME=/code PATH=/opt/app/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin PYTHONPATH= LD_LIBRARY_PATH=
+# Fails the build if ODM cannot start in this image.
+RUN cd /code && env -i PATH="/code/venv/bin:/usr/bin:/bin" PYTHONPATH="$(ls -d /code/SuperBuild/install/lib/python3*/dist-packages | head -1)" LD_LIBRARY_PATH=/code/SuperBuild/install/lib python3 /code/run.py --help | head -3
 WORKDIR /app/backend
+ENTRYPOINT []
 EXPOSE 8000
 CMD ["uvicorn", "app.api.main:app_factory", "--factory", "--host", "0.0.0.0", "--port", "8000"]

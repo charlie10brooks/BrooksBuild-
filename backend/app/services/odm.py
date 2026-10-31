@@ -92,8 +92,27 @@ def native_runner(app: AppContext):
     home = Path(app.settings.odm_home)
     if not (home / "run.py").exists():
         return None
-    entry = home / "scripts" / "docker-entrypoint.sh"
-    return ["bash", str(entry)] if entry.exists() else ["python3", str(home / "run.py")]
+    entry = home / "scripts" / "docker-entrypoint.sh"          # newer ODM layout (pixi)
+    if entry.exists():
+        return ["bash", str(entry)]
+    py = home / "venv" / "bin" / "python3"                      # ODM 3.x image layout: python3 /code/run.py inside /code/venv
+    return [str(py) if py.exists() else "python3", str(home / "run.py")]
+
+
+def native_env(app: AppContext) -> dict:
+    """Environment ODM expects (the ODM image sets these as ENV; this app's own process deliberately does not inherit them)."""
+    env = dict(os.environ)
+    home = Path(app.settings.odm_home)
+    sb = home / "SuperBuild" / "install"
+    if sb.exists():
+        pp = [str(q) for q in sorted(sb.glob("local/lib/python3*/dist-packages")) + sorted(sb.glob("lib/python3*/dist-packages"))]
+        pp.append(str(sb / "bin" / "opensfm"))
+        env["PYTHONPATH"] = ":".join(pp)
+        env["LD_LIBRARY_PATH"] = str(sb / "lib")
+        env["PDAL_DRIVER_PATH"] = str(sb / "bin")
+    if (home / "venv" / "bin").exists():
+        env["PATH"] = str(home / "venv" / "bin") + ":" + env.get("PATH", "")
+    return env
 
 
 def check_docker(app: AppContext) -> str:
@@ -113,7 +132,7 @@ def check_docker(app: AppContext) -> str:
 def verify_options(app: AppContext, docker: str, args: List[str]) -> None:
     nat = native_runner(app)
     cmd = nat + ["--help"] if nat else [docker, "run", "--rm", app.settings.odm_image, "--help"]
-    r = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+    r = subprocess.run(cmd, capture_output=True, text=True, timeout=300, env=native_env(app) if nat else None)
     text = r.stdout + r.stderr
     if r.returncode != 0 and "--project-path" not in text:
         from .las import MissingDependency
@@ -258,7 +277,7 @@ def run_odm(app: AppContext, ctx: JobContext) -> dict:
     ctx.log(("[built-in ODM] " if native else "") + "$ " + " ".join(cmd))
     state = {"stage": None}
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1,
-                            start_new_session=bool(native))
+                            start_new_session=bool(native), env=native_env(app) if native else None)
     stop = threading.Event()
 
     def watcher():
