@@ -20,7 +20,7 @@ jobs:
         run: |
           set -o pipefail
           docker build --progress=plain -t terrascope:ci . 2>&1 | tee build.log || {
-            echo "::error title=docker build failed::$(tail -n 40 build.log | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')"; exit 1; }
+            echo "::error title=docker build failed::$( (grep -n -i -E 'error|failed|not found|denied|no such' build.log | tail -n 8; tail -n 6 build.log) | cut -c1-240 | tr '\n' '|' | sed 's/%/%25/g')"; exit 1; }
 
       - name: Run the backend tests inside the image
         run: |
