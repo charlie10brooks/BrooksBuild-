@@ -40,6 +40,10 @@ class Settings:
     # external tools
     pdal_bin: str = field(default_factory=lambda: os.environ.get("TERRASCOPE_PDAL_BIN", "pdal"))
     docker_bin: str = field(default_factory=lambda: os.environ.get("TERRASCOPE_DOCKER_BIN", "docker"))
+    # Native mode: a copy of OpenDroneMap installed inside this image (Dockerfile stage "odm", at /code). Used when run.py is there,
+    # unless TERRASCOPE_ODM_MODE=docker. No Docker socket needed.
+    odm_home: str = field(default_factory=lambda: os.environ.get("TERRASCOPE_ODM_HOME", "/code"))
+    odm_mode: str = field(default_factory=lambda: os.environ.get("TERRASCOPE_ODM_MODE", "auto"))
     odm_image: str = field(default_factory=lambda: os.environ.get("TERRASCOPE_ODM_IMAGE", "opendronemap/odm:latest"))
     odm_extra_args: str = field(default_factory=lambda: os.environ.get("TERRASCOPE_ODM_ARGS", ""))
     dev_mode: bool = field(default_factory=lambda: _bool("DEV_MODE", False))

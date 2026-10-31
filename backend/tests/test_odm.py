@@ -90,7 +90,7 @@ class OdmStubTests(unittest.TestCase):
         stub.write_text(STUB.format(py=sys.executable, backend=BACKEND))
         stub.chmod(stub.stat().st_mode | stat.S_IEXEC)
         self.set_mode("ok")
-        self.ctx = make_app(self.dir / "data", docker_bin=str(stub))
+        self.ctx = make_app(self.dir / "data", docker_bin=str(stub), odm_mode="docker")
         self.c = TestClient(create_app(self.ctx, static_dir=self.dir / "nostatic"))
         self.pid = self.c.post("/api/projects", json={"name": "ODM stub", "epsg": 32616}).json()["id"]
         self.add_images(9)
@@ -113,6 +113,36 @@ class OdmStubTests(unittest.TestCase):
         jid = self.ctx.queue.enqueue("odm", self.pid, {"project_id": self.pid, **p})
         drain(self.ctx)
         return self.ctx.db.one("SELECT * FROM jobs WHERE id=?", (jid,))
+
+    def test_native_mode_runs_without_docker(self):
+        """ODM installed inside the image: run via scripts/docker-entrypoint.sh --project-path <parent> ... <name>, no docker at all."""
+        import json
+        home = self.dir / "odmhome"
+        (home / "scripts").mkdir(parents=True)
+        (home / "run.py").write_text("# fake ODM\n")
+        entry = home / "scripts" / "docker-entrypoint.sh"
+        entry.write_text(f"""#!{sys.executable}
+import sys, subprocess
+a = sys.argv[1:]
+stub = {str(self.bin / 'docker')!r}
+if "--help" in a:
+    sys.exit(subprocess.call([stub, "--help"]))
+i = a.index("--project-path")
+work = a[i + 1] + "/" + a[-1]
+rest = [x for k, x in enumerate(a[:-1]) if k not in (i, i + 1)]
+sys.exit(subprocess.call([stub, "run", "--rm", "-v", work + ":/datasets/code", "x", *rest]))
+""")
+        entry.chmod(entry.stat().st_mode | stat.S_IEXEC)
+        self.ctx.settings.odm_mode = "auto"
+        self.ctx.settings.odm_home = str(home)
+        self.ctx.settings.docker_bin = "/nonexistent/docker"      # proves docker is not needed
+        j = self.run_job()
+        self.assertEqual(j["status"], "succeeded", j)
+        self.assertTrue(P.get(self.ctx, self.pid, "odm_dsm")["exists"])
+        call = json.loads((self.bin / "calls.json").read_text())
+        self.assertIn("--dsm", call)
+        st = self.c.get(f"/api/projects/{self.pid}/photogrammetry").json()
+        self.assertTrue(json.dumps(st).count('"native": true') >= 1, st)
 
     def test_success_registers_products_and_quality(self):
         j = self.run_job()

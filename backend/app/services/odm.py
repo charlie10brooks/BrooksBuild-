@@ -15,6 +15,7 @@ import json
 import os
 import re
 import shutil
+import signal
 import subprocess
 import threading
 import time
@@ -84,6 +85,17 @@ def option_names(args: List[str]) -> List[str]:
     return [a for a in args if a.startswith("--")]
 
 
+def native_runner(app: AppContext):
+    """Command prefix to run the ODM installed inside this image, or None when it is not there / docker mode is forced."""
+    if app.settings.odm_mode == "docker":
+        return None
+    home = Path(app.settings.odm_home)
+    if not (home / "run.py").exists():
+        return None
+    entry = home / "scripts" / "docker-entrypoint.sh"
+    return [str(entry)] if entry.exists() else ["python3", str(home / "run.py")]
+
+
 def check_docker(app: AppContext) -> str:
     docker = shutil.which(app.settings.docker_bin)
     from .las import MissingDependency
@@ -99,7 +111,9 @@ def check_docker(app: AppContext) -> str:
 
 
 def verify_options(app: AppContext, docker: str, args: List[str]) -> None:
-    r = subprocess.run([docker, "run", "--rm", app.settings.odm_image, "--help"], capture_output=True, text=True, timeout=300)
+    nat = native_runner(app)
+    cmd = nat + ["--help"] if nat else [docker, "run", "--rm", app.settings.odm_image, "--help"]
+    r = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
     text = r.stdout + r.stderr
     if r.returncode != 0 and "--project-path" not in text:
         from .las import MissingDependency
@@ -225,7 +239,8 @@ def run_odm(app: AppContext, ctx: JobContext) -> dict:
                          "Upload a gcp_list.txt, or re-submit with allow_ungeoreferenced=true to produce a local, non-georeferenced model.",
                          "no_georeference")
     opts = build_options(p.get("preset", "balanced"), p.get("options"), bool(gcp and gcp["exists"]))
-    docker = check_docker(app)
+    native = native_runner(app)
+    docker = "docker" if native else check_docker(app)
     ctx.progress(0.01, "verifying ODM options")
     verify_options(app, docker, opts)
     ctx.progress(0.02, "preparing inputs")
@@ -235,18 +250,28 @@ def run_odm(app: AppContext, ctx: JobContext) -> dict:
         shutil.copy2(gcp["path"], work / "gcp_list.txt")
     ctx.log(f"ODM inputs: {info}; options: {' '.join(opts)}")
     name = f"terrascope-odm-{ctx.id[:12]}"
-    cmd = [docker, "run", "--rm", "--name", name, "-v", f"{work}:/datasets/code", app.settings.odm_image,
-           "--project-path", "/datasets", *opts, *app.settings.odm_extra_args.split(), "code"]
-    ctx.log("$ " + " ".join(cmd))
+    if native:
+        cmd = [*native, "--project-path", str(work.parent), *opts, *app.settings.odm_extra_args.split(), work.name]
+    else:
+        cmd = [docker, "run", "--rm", "--name", name, "-v", f"{work}:/datasets/code", app.settings.odm_image,
+               "--project-path", "/datasets", *opts, *app.settings.odm_extra_args.split(), "code"]
+    ctx.log(("[built-in ODM] " if native else "") + "$ " + " ".join(cmd))
     state = {"stage": None}
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1,
+                            start_new_session=bool(native))
     stop = threading.Event()
 
     def watcher():
         while not stop.wait(2.0):
             if ctx.cancelled():
-                subprocess.run([docker, "stop", "-t", "20", name], capture_output=True)
-                proc.terminate()
+                if native:
+                    try:
+                        os.killpg(proc.pid, signal.SIGTERM)
+                    except Exception:
+                        proc.terminate()
+                else:
+                    subprocess.run([docker, "stop", "-t", "20", name], capture_output=True)
+                    proc.terminate()
                 return
     threading.Thread(target=watcher, daemon=True).start()
     tail: List[str] = []

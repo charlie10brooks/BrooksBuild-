@@ -39,6 +39,31 @@ jobs:
             echo "::error title=app did not answer::$(docker logs ts 2>&1 | tail -n 40 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')"; exit 1; fi
           echo "app answers"; docker logs ts
 
+      - name: Real OpenDroneMap run inside the image (small public photo set)
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          fail() { echo "::error title=real ODM run failed::$(tail -n 40 odm.log | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')"; exit 1; }
+          git clone --depth 1 https://github.com/pierotofy/drone_dataset_brighton_beach.git bb 2>&1 | tail -2 || true
+          mkdir -p odm-ci/proj/images
+          find bb -type f \( -iname '*.jpg' -o -iname '*.jpeg' \) | sort | head -n 30 | while read f; do cp "$f" odm-ci/proj/images/; done
+          echo "photos used: $(ls odm-ci/proj/images | wc -l)" | tee odm.log
+          [ "$(ls odm-ci/proj/images | wc -l)" -ge 5 ] || { echo "dataset missing" >> odm.log; fail; }
+          chmod -R a+rwX odm-ci
+          docker run --rm -v "$PWD/odm-ci:/data" -e TERRASCOPE_ODM_HOME=/code terrascope:ci \
+            /code/scripts/docker-entrypoint.sh --project-path /data --feature-quality lowest --pc-quality lowest \
+            --resize-to 640 --orthophoto-resolution 20 --mesh-octree-depth 9 --skip-report --max-concurrency 4 proj 2>&1 | tee -a odm.log || fail
+          find odm-ci/proj -maxdepth 2 -name '*.obj' -o -maxdepth 2 -name 'dsm.tif' -o -maxdepth 2 -name 'coords.txt' | tee -a odm.log
+          test -f odm-ci/proj/odm_texturing/odm_textured_model_geo.obj || { echo "no textured obj" >> odm.log; fail; }
+          docker run --rm -v "$PWD/odm-ci:/data" terrascope:ci python -c "
+          from pathlib import Path
+          from app.services import meshprep as M
+          m = M.parse_obj(Path('/data/proj/odm_texturing/odm_textured_model_geo.obj'))
+          print({k: (v.shape if hasattr(v, 'shape') else (len(v) if hasattr(v, '__len__') else v)) for k, v in m.items()})
+          print(open('/data/proj/odm_georeferencing/coords.txt').read()[:200])
+          " 2>&1 | tee -a odm.log || fail
+          echo "real ODM run OK"
+
       - name: Publish the image (main branch only)
         if: github.ref == 'refs/heads/main'
         run: |

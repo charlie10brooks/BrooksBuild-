@@ -150,7 +150,8 @@ async def photogrammetry_state(request: Request):
     def work():
         n = app.db.one("SELECT COUNT(*) n, SUM(lat IS NOT NULL) g FROM images WHERE project_id=?", (pid,))
         gcp = P.get(app, pid, "gcp_list")
-        docker = {"available": bool(shutil.which(app.settings.docker_bin)), "bin": app.settings.docker_bin, "image": app.settings.odm_image}
+        native = ODM.native_runner(app) is not None
+        docker = {"available": native or bool(shutil.which(app.settings.docker_bin)), "native": native, "bin": app.settings.docker_bin, "image": app.settings.odm_image}
         if not docker["available"]:
             docker["hint"] = ODM.DOCKER_HINT
         last = app.db.one("SELECT id,status,progress,message,error,error_code,created_at,finished_at FROM jobs WHERE project_id=? AND kind='odm' "

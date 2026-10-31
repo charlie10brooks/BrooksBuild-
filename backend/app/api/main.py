@@ -33,12 +33,14 @@ def dependency_report(app: AppContext) -> dict:
             docker_running = subprocess.run([docker, "info"], capture_output=True, timeout=5).returncode == 0
         except Exception:
             docker_running = False
+    from ..services import odm as _odm
+    native_odm = _odm.native_runner(app) is not None
     return {
         "pdal": {"available": bool(pdal), "path": pdal, "needed_for": "SMRF/PMF ground filtering and LAZ conversion",
                  "install": "conda install -c conda-forge pdal   |   apt install pdal   |   docker image pdal/pdal"},
         "docker": {"available": bool(docker), "daemon_running": docker_running, "needed_for": "OpenDroneMap photogrammetry",
                    "install": "Install Docker Engine and start the daemon: https://docs.docker.com/engine/install/"},
-        "opendronemap": {"image": s.odm_image, "needed_for": "orthomosaic, point cloud, DSM from drone images",
+        "opendronemap": {"native": native_odm, "image": s.odm_image, "needed_for": "orthomosaic, point cloud, DSM from drone images",
                          "install": f"docker pull {s.odm_image}  (several GB; needs the Docker daemon)"},
         "segmentation_model": {"configured": bool(s.model_path), "path": s.model_path or None,
                                "note": "Optional ONNX model. Without it the built-in colour/texture heuristic is used."},
