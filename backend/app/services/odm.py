@@ -93,7 +93,7 @@ def native_runner(app: AppContext):
     if not (home / "run.py").exists():
         return None
     entry = home / "scripts" / "docker-entrypoint.sh"
-    return [str(entry)] if entry.exists() else ["python3", str(home / "run.py")]
+    return ["bash", str(entry)] if entry.exists() else ["python3", str(home / "run.py")]
 
 
 def check_docker(app: AppContext) -> str:

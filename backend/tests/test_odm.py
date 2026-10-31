@@ -121,8 +121,8 @@ class OdmStubTests(unittest.TestCase):
         (home / "scripts").mkdir(parents=True)
         (home / "run.py").write_text("# fake ODM\n")
         entry = home / "scripts" / "docker-entrypoint.sh"
-        entry.write_text(f"""#!{sys.executable}
-import sys, subprocess
+        entry.write_text(f"#!/bin/bash\nexec {sys.executable} {home / 'entry.py'} \"$@\"\n")
+        (home / "entry.py").write_text(f"""import sys, subprocess
 a = sys.argv[1:]
 stub = {str(self.bin / 'docker')!r}
 if "--help" in a:

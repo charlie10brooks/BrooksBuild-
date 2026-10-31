@@ -23,7 +23,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends docker.io libgl
     && (which pdal && pdal --version | head -1 || echo "PDAL: not installed")
 COPY --from=odm /code /code
 # Fails the build if the copied ODM cannot start on this base image (missing libraries, wrong paths).
-RUN cd /code && ./scripts/docker-entrypoint.sh python3 scripts/smoke.py && ./scripts/docker-entrypoint.sh --help | head -3
+RUN cd /code && bash scripts/docker-entrypoint.sh python3 scripts/smoke.py && bash scripts/docker-entrypoint.sh --help | head -3
 ENV TERRASCOPE_ODM_HOME=/code
 WORKDIR /app
 COPY backend/requirements.txt backend/requirements.txt
