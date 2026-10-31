@@ -85,6 +85,25 @@ def option_names(args: List[str]) -> List[str]:
     return [a for a in args if a.startswith("--")]
 
 
+def memory_gb() -> float:
+    """RAM this process may use: the container (cgroup) limit when there is one, else the machine's total."""
+    vals = []
+    for f in ("/sys/fs/cgroup/memory.max", "/sys/fs/cgroup/memory/memory.limit_in_bytes"):
+        try:
+            t = Path(f).read_text().strip()
+            if t.isdigit() and int(t) < 1 << 50:
+                vals.append(int(t) / 2**30)
+        except Exception:
+            pass
+    try:
+        for line in Path("/proc/meminfo").read_text().splitlines():
+            if line.startswith("MemTotal:"):
+                vals.append(int(line.split()[1]) / 2**20)
+    except Exception:
+        pass
+    return min(vals) if vals else 0.0
+
+
 def native_runner(app: AppContext):
     """Command prefix to run the ODM installed inside this image, or None when it is not there / docker mode is forced."""
     if app.settings.odm_mode == "docker":
@@ -267,6 +286,12 @@ def run_odm(app: AppContext, ctx: JobContext) -> dict:
     work = app.storage.path(pid, "odm")
     if gcp and gcp["exists"]:
         shutil.copy2(gcp["path"], work / "gcp_list.txt")
+    mem = memory_gb()
+    if native and mem and "--max-concurrency" not in opts and "--max-concurrency" not in app.settings.odm_extra_args:
+        # ODM runs one worker per CPU by default; each can need several GB, and a killed worker shows up as "exit code 143" / 137.
+        conc = max(1, min(os.cpu_count() or 1, int(mem // 3)))
+        opts += ["--max-concurrency", str(conc)]
+    ctx.log(f"memory available: {mem:.1f} GB, CPUs: {os.cpu_count()}")
     ctx.log(f"ODM inputs: {info}; options: {' '.join(opts)}")
     name = f"terrascope-odm-{ctx.id[:12]}"
     if native:
@@ -313,7 +338,7 @@ def run_odm(app: AppContext, ctx: JobContext) -> dict:
         raise JobCancelled()
     if rc != 0:
         raise JobFailure(f"ODM exited with code {rc} (stage: {state['stage']}). Last output: " + " | ".join(tail[-5:])[:900] +
-                         " Retry to resume from the last completed stage.", "odm_failed", retryable=False)
+                         (" Exit code 143/137 usually means a process was stopped for lack of memory (this machine has about %.0f GB); use a machine with more memory or fewer photos, then retry." % mem if rc in (137, 143) else "") + " Retry to resume from the last completed stage.", "odm_failed", retryable=False)
 
     # -------- outputs
     ctx.progress(0.94, "registering outputs")
