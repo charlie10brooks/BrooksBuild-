@@ -71,3 +71,11 @@ jobs:
           IMG=ghcr.io/$(echo "${{ github.repository_owner }}" | tr 'A-Z' 'a-z')/terrascope
           docker tag terrascope:ci "$IMG:latest"
           docker push "$IMG:latest"
+
+      - name: Keep the build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs
+          path: "*.log"
+          if-no-files-found: ignore
