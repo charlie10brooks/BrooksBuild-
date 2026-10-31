@@ -326,3 +326,14 @@ sys.exit(subprocess.call([stub, "run", "--rm", "-v", work + ":/datasets/code", "
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DjiCameraFilterTests(unittest.TestCase):
+    def test_mixed_cameras_keep_visible_only(self):
+        from app.services.odm import cameras_to_skip
+        rows = [{"id": f"{k}{s}", "filename": f"DJI_20261018093231_015{k}_{s}.JPG"} for k in range(3) for s in "VWTZ"]
+        skip = cameras_to_skip(rows, set())
+        self.assertEqual(len(skip), 9)
+        self.assertTrue(all(not i.endswith("V") for i in skip))
+        self.assertEqual(cameras_to_skip([r for r in rows if r["id"].endswith("V")], set()), set())
+        self.assertEqual(cameras_to_skip([{"id": "a", "filename": "IMG_1.JPG"}], set()), set())

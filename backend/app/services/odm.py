@@ -163,6 +163,26 @@ def verify_options(app: AppContext, docker: str, args: List[str]) -> None:
                          "version; adjust services/odm.py (ALWAYS / PRESETS) or pin the image version.", "odm_option_mismatch")
 
 
+_DJI_CAM = re.compile(r"^DJI_\d{14}_\d{4}_([VWTZ])\.", re.I)
+
+
+def cameras_to_skip(rows, exclude, ctx=None) -> set:
+    """DJI enterprise drones save one file per camera per shot (_V visible, _W wide, _T thermal, _Z zoom). Mixing them breaks
+    matching, so when several are present only one camera is used: _V if there is any, else the most common one."""
+    cams: Dict[str, List[str]] = {}
+    for r in rows:
+        m = _DJI_CAM.match(r["filename"] or "")
+        if m and r["id"] not in exclude:
+            cams.setdefault(m.group(1).upper(), []).append(r["id"])
+    if len(cams) < 2:
+        return set()
+    keep = "V" if "V" in cams else max(cams, key=lambda k: len(cams[k]))
+    skip = {i for k, ids in cams.items() if k != keep for i in ids}
+    if ctx:
+        ctx.log(f"mixed DJI cameras found ({', '.join(f'{k}:{len(v)}' for k, v in sorted(cams.items()))}); using only the _{keep} photos and leaving out {len(skip)}", "warning")
+    return skip
+
+
 def prepare_inputs(app: AppContext, pid: str, exclude: List[str], ctx: JobContext) -> dict:
     work = app.storage.ensure(pid, "odm")
     imgs = work / "images"
@@ -170,6 +190,7 @@ def prepare_inputs(app: AppContext, pid: str, exclude: List[str], ctx: JobContex
     rows = app.db.query("SELECT id, filename, rel_path, lat, lon FROM images WHERE project_id=?", (pid,))
     n = linked = skipped = 0
     want = set()
+    exclude = set(exclude) | cameras_to_skip(rows, exclude, ctx)
     for r in rows:
         if r["id"] in exclude:
             skipped += 1
