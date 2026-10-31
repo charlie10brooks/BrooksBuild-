@@ -51,7 +51,7 @@ jobs:
           [ "$(ls odm-ci/proj/images | wc -l)" -ge 5 ] || { echo "dataset missing" >> odm.log; fail; }
           chmod -R a+rwX odm-ci
           docker run --rm -v "$PWD/odm-ci:/data" -v "$PWD/scripts:/scripts:ro" terrascope:ci python /scripts/run_odm_native.py /data proj \
-            --feature-quality lowest --pc-quality lowest --resize-to 640 --orthophoto-resolution 20 --mesh-octree-depth 9 \
+            --feature-quality lowest --pc-quality lowest --orthophoto-resolution 20 --mesh-octree-depth 9 \
             --skip-report --max-concurrency 4 2>&1 | tee -a odm.log || fail
           find odm-ci/proj -maxdepth 2 -name '*.obj' -o -maxdepth 2 -name 'dsm.tif' -o -maxdepth 2 -name 'coords.txt' | tee -a odm.log
           test -f odm-ci/proj/odm_texturing/odm_textured_model_geo.obj || { echo "no textured obj" >> odm.log; fail; }
