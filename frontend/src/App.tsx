@@ -79,27 +79,27 @@ export function App() {
   }, []);
 
   const body = !pid ? (
-    <div className="m-auto max-w-[560px] p-6 text-slate-600">
-      <div className="mb-1 text-[22px] font-semibold text-slate-800">Welcome to Brooks<span className="text-sky-600">Build</span></div>
+    <div className="topo flex flex-1 overflow-auto"><div className="card-welcome m-auto max-w-[560px] p-6 text-slate-600">
+      <div className="mb-1 text-[22px] font-semibold text-slate-800">Welcome to Brooks<span className="text-accent">Build</span></div>
       <div className="mb-3 text-[14px]">Turn drone photos into a 3D model of your site, label what is on it, and plan around the terrain.</div>
       <ol className="mb-4 list-decimal space-y-1 pl-5 text-[14px]">
         <li>Press <b>+ New</b> in the left panel to start a project.</li><li>Open <b>Add photos</b> and upload your drone photos.</li><li>On <b>Image</b>, press <b>Process</b>. BrooksBuild builds and labels the 3D model.</li>
       </ol>
       <div className="text-[13px]">Just want a look around first? <button className="btn btn-primary ml-1" onClick={async () => { try { const q = await api.sample(); selectProject(q.id); setApp({ view: 'dashboard' }); } catch { /* the sidebar shows the error */ } }}>Open the sample project</button></div>
       <div className="mt-1 text-[11px] text-slate-500">The sample is made-up data for trying the tools. It is not a real site.</div>
-    </div>
+    </div></div>
   ) : !project ? <div className="m-auto text-slate-500">Loading project…</div> :
     view === 'dashboard' ? <Dashboard /> : view === 'upload' ? <Upload /> : view === 'terrain' ? <TerrainView mode="terrain" /> : view === 'planning' ? <TerrainView mode="planning" /> : view === 'view3d' ? <View3D /> : <Exports />;
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex h-10 shrink-0 items-center gap-2 border-b border-line bg-slate-900 px-2 text-slate-100">
+      <header className="brand-bar flex h-11 shrink-0 items-center gap-2 px-2 text-slate-100">
         <button className="rounded px-1.5 py-1 hover:bg-slate-700" title="Toggle left sidebar" onClick={() => setApp((s) => ({ leftOpen: !s.leftOpen }))}>☰</button>
-        <div className="mr-2 font-semibold tracking-wide">Brooks<span className="text-sky-300">Build</span></div>
+        <div className="mr-2 flex items-center gap-1.5 text-[15px] font-semibold tracking-wide"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M2 19 9 7l4 6 3-4 6 10H2Z" fill="#2b6a4c" stroke="#e3b341" strokeWidth="1.4" strokeLinejoin="round"/><path d="M5 19c2-2 4-2 7 0s5 2 7 0" stroke="#e3b341" strokeWidth="1" opacity=".8"/></svg><span>Brooks<span className="text-[#e3b341]">Build</span></span></div>
         {project && <div className="mr-2 flex items-center gap-2 truncate text-[12px] text-slate-300"><span className="max-w-[220px] truncate font-medium text-white">{project.name}</span>
           {project.is_sample && <span className="rounded border border-red-400 px-1 text-[10px] text-red-300">SYNTHETIC</span>}</div>}
         <nav className="flex gap-0.5">
-          {TABS.map((t) => <button key={t.id} title={`Alt+${t.key}`} disabled={!pid} onClick={() => setApp({ view: t.id })} className={`rounded px-2.5 py-1 text-[12px] disabled:opacity-40 ${view === t.id ? 'bg-sky-600 text-white' : 'text-slate-300 hover:bg-slate-700'}`}>{t.label}</button>)}
+          {TABS.map((t) => <button key={t.id} title={`Alt+${t.key}`} disabled={!pid} onClick={() => setApp({ view: t.id })} className={`rounded px-2.5 py-1 text-[12px] disabled:opacity-40 ${view === t.id ? 'bg-accent text-white' : 'text-slate-300 hover:bg-slate-700'}`}>{t.label}</button>)}
         </nav>
         <div className="flex-1" />
         <div className="flex items-center gap-1">

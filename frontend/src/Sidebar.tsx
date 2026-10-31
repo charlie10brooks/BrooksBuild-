@@ -40,7 +40,7 @@ function Projects() {
       {data && data.length === 0 && <div className="text-slate-600">No projects yet. Create one, or add the synthetic sample to explore the tools.</div>}
       <div className="max-h-48 overflow-auto">
         {(data ?? []).map((p: Project) => (
-          <button key={p.id} onClick={() => selectProject(p.id)} className={`mb-1 block w-full rounded border px-2 py-1 text-left ${p.id === pid ? 'border-accent bg-sky-50' : 'border-line bg-white hover:bg-slate-50'}`}>
+          <button key={p.id} onClick={() => selectProject(p.id)} className={`mb-1 block w-full rounded border px-2 py-1 text-left ${p.id === pid ? 'border-accent bg-emerald-50' : 'border-line bg-white hover:bg-slate-50'}`}>
             <div className="flex items-center justify-between gap-1"><span className="truncate font-medium">{p.name}</span>{p.is_sample && <Chip kind="warn" title="Synthetic data">sample</Chip>}</div>
             <div className="text-[11px] text-slate-500">{p.image_count} images · {fmtBytes(p.image_bytes)}{p.jobs.running ? ` · ${p.jobs.running} running` : ''}{p.jobs.failed ? ` · ${p.jobs.failed} failed` : ''}</div>
           </button>

@@ -68,7 +68,7 @@ function SiteMap() {
       <MapCanvas apiRef={api_} draw={draw} initialBounds={proj.bounds ? padded(proj.bounds) : null} cursor="grab" panAlways />
       {!proj.bounds && <div className="absolute inset-0 flex items-center justify-center text-slate-500">No image positions yet. Upload GPS-tagged images to see the flight footprints.</div>}
       <div className="absolute left-2 top-2 flex flex-col gap-1 rounded bg-white/90 px-2 py-1 text-[11px]">
-        <span><span className="mr-1 inline-block h-2 w-3 border border-sky-700 bg-sky-100" />footprint</span>
+        <span><span className="mr-1 inline-block h-2 w-3 border border-accent bg-emerald-100" />footprint</span>
         <span><span className="mr-1 inline-block h-2 w-3 border border-red-600 bg-red-100" />poor estimated overlap</span>
         <span><span className="mr-1 inline-block h-0 w-3 border-t-2 border-dashed border-amber-500" />boundary</span>
       </div>

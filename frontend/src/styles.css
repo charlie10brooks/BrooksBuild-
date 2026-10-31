@@ -3,11 +3,23 @@
 @theme {
   --font-sans: Inter, "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  --color-panel: #f6f7f9;
-  --color-line: #cfd5dc;
-  --color-ink: #1c2530;
-  --color-accent: #1f5f8b;
-  --color-accent-dark: #174a6d;
+  /* BrooksBuild theme: forest green + warm survey-sand neutrals + a gold highlight. Observed = blue and estimated = amber stay as before. */
+  --color-panel: #f3f0e8;
+  --color-line: #d8d2c3;
+  --color-ink: #20261f;
+  --color-accent: #2b6a4c;
+  --color-accent-dark: #1f5039;
+  --color-gold: #e3b341;
+  --color-slate-50: #f8f6f0;
+  --color-slate-100: #f0ede4;
+  --color-slate-200: #e4dfd2;
+  --color-slate-300: #d1cbbb;
+  --color-slate-400: #a29c8c;
+  --color-slate-500: #78766a;
+  --color-slate-600: #5b5f53;
+  --color-slate-700: #384639;
+  --color-slate-800: #25342a;
+  --color-slate-900: #16261d;
   --color-warn: #b3261e;
   --color-observed: #1b6ca8;
   --color-estimated: #b5651d;
@@ -15,15 +27,23 @@
 
 html, body, #root { height: 100%; }
 body { margin: 0; font-size: 13px; overflow: hidden; }
-* { scrollbar-width: thin; scrollbar-color: #b6bec8 transparent; }
+* { scrollbar-width: thin; scrollbar-color: #b9b29f transparent; }
 .btn { @apply inline-flex items-center gap-1 rounded border border-line bg-white px-2 py-1 text-[12px] leading-4 text-ink hover:bg-slate-50 disabled:opacity-45 disabled:pointer-events-none; }
 .btn-primary { @apply border-accent bg-accent text-white hover:bg-accent-dark; }
 .btn-danger { @apply border-warn text-warn hover:bg-red-50; }
-.btn-on { @apply border-accent bg-sky-100 text-accent-dark; }
+.btn-on { @apply border-accent bg-emerald-100 text-accent-dark; }
 .input { @apply rounded border border-line bg-white px-1.5 py-1 text-[12px] text-ink; }
 .sec-title { @apply px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500; }
 .chip { @apply inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] leading-4; }
 canvas { touch-action: none; display: block; }
-input[type=range] { accent-color: #1f5f8b; }
+input[type=range] { accent-color: #2b6a4c; }
 kbd { @apply rounded border border-line bg-white px-1 text-[10px] font-mono; }
 #right-slot:empty { display: none !important; }
+
+body { background: var(--color-panel); }
+.btn { @apply shadow-[0_1px_0_rgba(0,0,0,.04)]; }
+.btn-primary { @apply font-medium; }
+header.brand-bar { background: linear-gradient(180deg, #1d3326 0%, #16261d 100%); border-bottom: 2px solid var(--color-gold); }
+/* faint topographic contour lines behind empty screens */
+.topo { background-color: #ece7da; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='520' height='320' viewBox='0 0 520 320' fill='none' stroke='%232b6a4c' stroke-opacity='.13' stroke-width='1.2'%3E%3Cellipse cx='150' cy='170' rx='140' ry='80'/%3E%3Cellipse cx='150' cy='170' rx='105' ry='58'/%3E%3Cellipse cx='150' cy='170' rx='70' ry='38'/%3E%3Cellipse cx='150' cy='170' rx='35' ry='18'/%3E%3Cellipse cx='400' cy='90' rx='100' ry='55'/%3E%3Cellipse cx='400' cy='90' rx='68' ry='36'/%3E%3Cellipse cx='400' cy='90' rx='36' ry='18'/%3E%3Cellipse cx='420' cy='270' rx='90' ry='40'/%3E%3Cellipse cx='420' cy='270' rx='55' ry='22'/%3E%3C/svg%3E"); background-size: 520px 320px; }
+.card-welcome { @apply rounded-lg border border-line bg-white/90 shadow-md; }

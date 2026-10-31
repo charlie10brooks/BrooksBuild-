@@ -74,7 +74,7 @@ export function MeshClassify({ pid }: { pid: string }) {
           <div className="mb-1 text-[12px] font-semibold">Class</div>
           <div className="mb-2 space-y-0.5">
             {[{ id: 0, name: 'Unlabelled (erase)', color: '#9aa0a6' } as CClass, ...classes.filter((c) => c.id !== 0)].map((c) => (
-              <div key={c.id} className={`flex items-center gap-1.5 rounded px-1 py-0.5 text-[12px] ${active === c.id ? 'bg-sky-50 ring-1 ring-accent' : ''}`}>
+              <div key={c.id} className={`flex items-center gap-1.5 rounded px-1 py-0.5 text-[12px] ${active === c.id ? 'bg-emerald-50 ring-1 ring-accent' : ''}`}>
                 <input type="radio" name="mcls" checked={active === c.id} onChange={() => setActive(c.id)} />
                 <span className="inline-block h-3 w-3 shrink-0 rounded-sm border border-slate-400" style={{ background: c.color }} />
                 <button className="min-w-0 flex-1 truncate text-left" onClick={() => setActive(c.id)}>{c.name}</button>

@@ -62,7 +62,7 @@ export function Pipeline({ p }: { p: Project }) {
         <div className="mb-2 text-[13px] font-medium text-slate-800">{next}</div>
         <div className="mb-2 grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))' }}>
           {STEPS.map((g, i) => { const j = latest(g.kinds[0]); const done = j?.status === 'succeeded'; return (
-            <div key={g.kinds[0]} className={`rounded border p-2 ${j?.status === 'running' ? 'border-accent bg-sky-50' : 'border-line'}`}>
+            <div key={g.kinds[0]} className={`rounded border p-2 ${j?.status === 'running' ? 'border-accent bg-emerald-50' : 'border-line'}`}>
               <div className="flex items-center justify-between gap-1 text-[12px]"><b>{i + 1}. {g.title}</b>{j ? <Chip kind={j.status}>{done ? 'done' : j.status}</Chip> : <Chip kind="queued">waiting</Chip>}</div>
               <div className="mt-0.5 text-[11px] text-slate-500">{g.hint}</div>
               {j && (j.status === 'running' || j.status === 'queued') && <><Progress value={j.progress} /><div className="truncate text-[11px] text-slate-500">{j.message}</div></>}

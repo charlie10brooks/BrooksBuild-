@@ -85,7 +85,7 @@ export function Upload() {
                 </div>
               )}
               <div onDragOver={(e) => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)} onDrop={onDrop}
-                className={`flex h-32 flex-col items-center justify-center rounded border-2 border-dashed ${drag ? 'border-accent bg-sky-50' : 'border-line bg-panel'}`}>
+                className={`flex h-32 flex-col items-center justify-center rounded border-2 border-dashed ${drag ? 'border-accent bg-emerald-50' : 'border-line bg-panel'}`}>
                 <div className="mb-2 text-slate-600">Drop files or whole folders here</div>
                 <div className="flex gap-2">
                   <button className="btn btn-primary" onClick={() => fileIn.current?.click()}>Choose files…</button>
